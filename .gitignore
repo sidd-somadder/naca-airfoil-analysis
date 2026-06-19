@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Ignore generated airfoil coordinate CSVs, preserve folder via .gitkeep
+saved_airfoil_coords/*
+!saved_airfoil_coords/.gitkeep
