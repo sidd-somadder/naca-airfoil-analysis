@@ -4,11 +4,16 @@
 # Libraries for computation, plotting, and data collection
 import numpy as np
 import pandas as pd
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 # Collect NACA series airfoil from user input
 NACA_dig = int(input("Please enter your NACA airfoil 4-digit or 5-digit code: "))
 print(f"Your airfoil is: NACA {NACA_dig}")
+
+# Discretize the x axis from 0 to 1 with N points (user input)
+# Currently uniform spacing, will change to half-cosine spacing to be computationally efficient near LE/TE
+N = int(input("Enter desired number of points (N): "));
+x_axis = np.linspace(0, 1, N);
 
 # If input has 4 digits
 if (NACA_dig // 10000) == 0:
@@ -25,17 +30,29 @@ if (NACA_dig // 10000) == 0:
     # Print % chord values
     print(f"Max Camber % : {m}");
     print(f"Max Camber Position % : {p}");
-    print(f"Thickness % : {t}");
+    print(f"Max Thickness % : {t}");
 
-    # Discretize the x axis from 0 to 1 with N points (user input)
-    N = int(input("Enter desired number of points (N): "));
-    x_axis = np.linspace(0, 1, N);
-
-    # Define mean camberline using known equations for NACA 4-digit series airfoils
+    # Define mean camberline & slope using known equations for NACA 4-digit series airfoils
     y_mc = np.where((0 <= x_axis) & (x_axis < p), m/(p**2) * (2*p*x_axis - x_axis**2), m/((1-p)**2) * ((1-2*p) + 2*p*x_axis - x_axis**2));
+    dy_mc = np.where((0 <= x_axis) & (x_axis < p), 2*m/(p**2) * (p - x_axis), 2*m/((1-p)**2) * (p - x_axis));
 
-    print(x_axis);
-    print(y_mc);
+    # Define thickness across airfoil chord using max thickness % (t)
+    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1015*(x_axis**4));
+    theta = np.arctan(dy_mc);
+
+    # Define upper and lower airfoil camber line coordinates
+    x_upper = x_axis - y_t * np.sin(theta);
+    x_lower = x_axis + y_t * np.sin(theta);
+    y_upper = y_mc + y_t * np.cos(theta);
+    y_lower = y_mc - y_t * np.cos(theta);
+
+    # Process upper/lower x,y coordinates into a combined X,Y linspaces, respectively
+    X = np.concatenate([np.flip(x_lower[1:]), x_upper]);
+    Y = np.concatenate([np.flip(y_lower[1:]), y_upper]);
+
+    # Combine combined X,Y coordinate linspaces into 2N-1 x 2 matrix
+    XY_coords = np.column_stack((X,Y));
+
 
 # Assume otherwise user input has 5 digits, will handle improper inputs in future
 else:
