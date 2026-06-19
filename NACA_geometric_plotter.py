@@ -94,3 +94,23 @@ else:
     y_mc = np.zeros_like(x_axis)
     print(x_axis)
     print(y_mc)
+
+# Extract X and Y values from output coordinate matrix
+x_plot = XY_coords[:, 0]
+y_plot = XY_coords[:, 1]
+
+# Plot airfoil geometry:
+plt.figure(figsize=(10, 4))
+
+# Including both line plot and scatterplot to show overall shape and individual points for visualization
+plt.plot(x_plot, y_plot, 'b-', linewidth=1.5)
+plt.scatter(x_plot, y_plot, s=5, color='blue', zorder=5) 
+
+# Format plot to be readable and prevent squashed look 
+plt.axis('equal') 
+plt.xlabel('x/c')
+plt.ylabel('y/c')
+plt.title(f'NACA {NACA_dig} Airfoil Geometry')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
