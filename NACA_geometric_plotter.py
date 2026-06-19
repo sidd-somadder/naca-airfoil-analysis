@@ -37,6 +37,7 @@ while can_proceed_disc is False:
             break
         
         elif choice == 'N':
+            # Do nothing
             break
             
         else:
@@ -81,11 +82,18 @@ if (NACA_dig // 10000) == 0:
     y_lower = y_mc - y_t * np.cos(theta);
 
     # Process upper/lower x,y coordinates into a combined X,Y linspaces, respectively
+    # Note that the points go from TE to LE via lower surface and then LE to TE via upper surface.
+    # Clip the first index of each lower coordinates arrays to prevent doubling the LE point.
     X = np.concatenate([np.flip(x_lower[1:]), x_upper]);
     Y = np.concatenate([np.flip(y_lower[1:]), y_upper]);
 
     # Combine combined X,Y coordinate linspaces into 2N-1 x 2 matrix
     XY_coords = np.column_stack((X,Y));
+
+    # Close the trailing edge at (1,0) since it is required by the Kutta condition,
+    # in addition to NACA airfoils are designed with LE and TE meeting at a single point
+    XY_coords[0, :]  = [1, 0]   # lower trailing edge
+    XY_coords[-1, :] = [1, 0]   # upper trailing edge
 
 
 # Assume otherwise user input has 5 digits, will handle improper inputs in future
@@ -121,7 +129,34 @@ plt.title(f'NACA {NACA_dig} Airfoil Geometry')
 plt.grid(True)
 plt.tight_layout()
 plt.show()
+print("---");
+
+# .csv creation and exporting to saved_airfoil_coords folder
+from pathlib import Path
 
 # Before writing coordinate points to .csv file, check if dedicated folder exists to avoid conflicts
-from pathlib import Path
 Path("saved_airfoil_coords").mkdir(exist_ok=True)
+
+while True:
+        # Read user input, strip whitespace, and convert to uppercase
+        choice = input("Would you like to save your airfoil surface points to a .csv file? (Y/N): ").strip().upper()
+    
+        if choice == 'Y':
+            # Build filename and path. Example format: "NACA_4412_N100.csv" would be saved to saved_airfoils_coords
+            filename = f"NACA_{NACA_dig}_N{N}.csv"
+            filepath = Path("saved_airfoil_coords") / filename
+
+            # Create DataFrame from saved coordinate matrix and write to .csv
+            df = pd.DataFrame(XY_coords, columns=["x", "y"])
+            df.to_csv(filepath, index=False)
+
+            print(f"Coordinates saved to: {filepath}")
+            break
+        
+        elif choice == 'N':
+            # Do nothing
+            print("Coordinates not saved.")
+            break
+            
+        else:
+            print("Invalid choice. Please enter Y or N.")
