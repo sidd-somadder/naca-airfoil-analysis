@@ -220,3 +220,8 @@ __marimo__/
 # Ignore generated airfoil coordinate CSVs, preserve folder via .gitkeep
 saved_airfoil_coords/*
 !saved_airfoil_coords/.gitkeep
+
+# Ignore generated aerodynamic computation results, preserve folder via .gitkeep
+computation_results/*
+!computation_results/.gitkeep
+
