@@ -10,10 +10,33 @@ import matplotlib.pyplot as plt
 NACA_dig = int(input("Please enter your NACA airfoil 4-digit or 5-digit code: "))
 print(f"Your airfoil is: NACA {NACA_dig}")
 
-# Discretize the x axis from 0 to 1 with N points (user input)
 # Currently uniform spacing, will change to half-cosine spacing to be computationally efficient near LE/TE
-N = int(input("Enter desired number of points (N): "));
-x_axis = np.linspace(0, 1, N);
+can_proceed_disc = False;
+while can_proceed_disc is False:
+    # Discretize the x axis from 0 to 1 with N points (user input)
+    N = int(input("Enter desired number of chordwise points (N): "));
+    x_axis = np.linspace(0, 1, N); 
+    
+    # Inform user of expected number of surface points as opposed to N chordwise points used for computation
+    exp_ptnum = 2*N - 1;
+    print(f"User Note: {N} points along x-axis will be used for computation; running this script generates expected {exp_ptnum} upper/lower surface points.");
+
+    # Get user confirmation for input & expected number of points
+    while True:
+    # Read user input, strip whitespace, and convert to uppercase
+        choice = input("Proceed? (Y/N): ").strip().upper()
+    
+        if choice == 'Y':
+            can_proceed_disc = True;
+            break
+        
+        elif choice == 'N':
+            break
+            
+        else:
+            print("Invalid choice. Please enter Y or N.")
+
+print(f"Proceeding to airfoil plotting with {N} chordwise points and {exp_ptnum} total surface points...");
 
 # If input has 4 digits
 if (NACA_dig // 10000) == 0:
