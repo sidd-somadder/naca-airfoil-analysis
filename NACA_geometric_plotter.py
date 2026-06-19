@@ -12,7 +12,7 @@ NACA_dig = int(input("Please enter your NACA airfoil 4-digit or 5-digit code: ")
 # This needs verification step to handle unacceptable inputs
 #
 print(f"Your airfoil is: NACA {NACA_dig}")
-print("~~~~~~~~~~~~~~~~~~~~~~~")
+print("---")
 
 # Currently uniform spacing, will change to half-cosine spacing to be computationally efficient near LE/TE
 can_proceed_disc = False;
@@ -100,6 +100,8 @@ else:
     print(x_axis)
     print(y_mc)
 
+print("---");
+print("Plotting airfoil...");
 # Extract X and Y values from output coordinate matrix
 x_plot = XY_coords[:, 0]
 y_plot = XY_coords[:, 1]
