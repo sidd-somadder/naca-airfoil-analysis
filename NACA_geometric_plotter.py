@@ -9,13 +9,14 @@ import matplotlib.pyplot as plt
 # Collect NACA series airfoil from user input
 NACA_dig = int(input("Please enter your NACA airfoil 4-digit or 5-digit code: "))
 print(f"Your airfoil is: NACA {NACA_dig}")
+print("~~~~~~~~~~~~~~~~~~~~~~~")
 
 # Currently uniform spacing, will change to half-cosine spacing to be computationally efficient near LE/TE
 can_proceed_disc = False;
 while can_proceed_disc is False:
-    # Discretize the x axis from 0 to 1 with N points (user input)
+    # Read user input for desired N chordwise points
     N = int(input("Enter desired number of chordwise points (N): "));
-    x_axis = np.linspace(0, 1, N); 
+    print("---");
     
     # Inform user of expected number of surface points as opposed to N chordwise points used for computation
     exp_ptnum = 2*N - 1;
@@ -35,8 +36,12 @@ while can_proceed_disc is False:
             
         else:
             print("Invalid choice. Please enter Y or N.")
+    print("---");
 
 print(f"Proceeding to airfoil plotting with {N} chordwise points and {exp_ptnum} total surface points...");
+# Proceed with creating x-axis linspace with user-confirmed N points
+x_axis = np.linspace(0, 1, N); 
+print("---");
 
 # If input has 4 digits
 if (NACA_dig // 10000) == 0:
@@ -51,6 +56,7 @@ if (NACA_dig // 10000) == 0:
     t = t_dig/100;
 
     # Print % chord values
+    print(f"NACA {NACA_dig} details: ")
     print(f"Max Camber % : {m}");
     print(f"Max Camber Position % : {p}");
     print(f"Max Thickness % : {t}");
