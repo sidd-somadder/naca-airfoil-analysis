@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 
 # Collect NACA series airfoil from user input
 NACA_dig = int(input("Please enter your NACA airfoil 4-digit or 5-digit code: "))
+#
+# This needs verification step to handle unacceptable inputs
+#
 print(f"Your airfoil is: NACA {NACA_dig}")
 print("~~~~~~~~~~~~~~~~~~~~~~~")
 
@@ -17,7 +20,9 @@ while can_proceed_disc is False:
     # Read user input for desired N chordwise points
     N = int(input("Enter desired number of chordwise points (N): "));
     print("---");
-    
+    #
+    # This needs verification step to handle unacceptable inputs
+    #
     # Inform user of expected number of surface points as opposed to N chordwise points used for computation
     exp_ptnum = 2*N - 1;
     print(f"User Note: {N} points along x-axis will be used for computation; running this script generates expected {exp_ptnum} upper/lower surface points.");
@@ -114,3 +119,4 @@ plt.title(f'NACA {NACA_dig} Airfoil Geometry')
 plt.grid(True)
 plt.tight_layout()
 plt.show()
+
