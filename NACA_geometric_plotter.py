@@ -122,3 +122,6 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
+# Before writing coordinate points to .csv file, check if dedicated folder exists to avoid conflicts
+from pathlib import Path
+Path("saved_airfoil_coords").mkdir(exist_ok=True)
