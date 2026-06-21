@@ -51,6 +51,7 @@ print(f"Proceeding to airfoil plotting with {N} chordwise points and {exp_ptnum}
 x_axis = np.linspace(0, 1, N); 
 print("---");
 
+# At this point, assume that incorrect inputs have been filtered out by earlier input verification code block
 # If input has 4 digits
 if (NACA_dig // 10000) == 0:
     # For 4-digit airfoils, compute max camber (m), p (max camber location), and t (thickness) values in percentage chord
@@ -105,10 +106,23 @@ else:
     Q_dig  = (NACA_dig % 1000) // 100
     t_dig  = NACA_dig % 100
 
+    # Derive necessary parameters with digits and known convention
     cl_design = 3 * L_dig / 20
     xcm = P_dig / 20
-    t = t_dig / 100
-    reflexed  = (Q_dig == 1)   # boolean flag for camberline branching  
+    t = t_dig / 100  
+    # Boolean thats easier to interpret than just reading the value of Q
+    reflexed  = (Q_dig == 1)    
+
+    # Print % chord values
+    print(f"NACA {NACA_dig} details: ")
+    print(f"Design Lift Coefficient : {cl_design}");
+    print(f"Max Camber Position % : {xcm}");
+    print(f"Max Thickness % : {t}");
+    if reflexed:
+        print("Reflex: Yes");
+    else:
+        print("Reflex: No");
+    
     print("...") # Placeholder
 
 print("---");
