@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import brentq
 from pathlib import Path
-
+import sys 
 
 # Collect NACA series airfoil from user input
 NACA_dig = int(input("Please enter your NACA airfoil 4-digit or 5-digit code: "))
@@ -125,7 +125,12 @@ else:
         print("Reflex: Yes");
     else:
         print("Reflex: No");
+    print("---");
+    print("WARNING: This program has yet to implement a 5-digit plotter until computational scripts have been developed for the 4-digit series");
     
+    # Putting pause on developing a 5-series plotter with user warning
+    sys.exit()
+
     # Define equation to derive parameter r needed for mean camberline equation
     def r_equation(r, x_mc):
         return r * (1 - np.sqrt(r / 3)) - x_mc
