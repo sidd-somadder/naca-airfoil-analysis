@@ -9,7 +9,9 @@ import matplotlib.pyplot as plt
 # Collect NACA series airfoil from user input
 NACA_dig = int(input("Please enter your NACA airfoil 4-digit or 5-digit code: "))
 #
-# This needs verification step to handle unacceptable inputs
+# This needs verification step to handle unacceptable inputs (not 4 or 5 digits)
+# Check if 5 digit input, that Q digit is valid (0 or 1)
+# Check if 4 digit input has valid m and p values (either both or neither must be 0)
 #
 print(f"Your airfoil is: NACA {NACA_dig}")
 print("---")
@@ -95,18 +97,19 @@ if (NACA_dig // 10000) == 0:
     XY_coords[0, :]  = [1, 0]   # lower trailing edge
     XY_coords[-1, :] = [1, 0]   # upper trailing edge
 
-
-# Assume otherwise user input has 5 digits, will handle improper inputs in future
+# Assume otherwise 5 digits, follow procedure for handling 5-digit series
 else:
-    # Handle NACA 5-digit airfoils (placeholder)
-    # For now, notify that 5-digit airfoils are not available
-    print("5-digit NACA airfoil handling is not implemented in this script yet.")
+    # For NACA 5-digit airfoils, first extract L, P, Q, TT values via integer division & modulo
+    L_dig  = NACA_dig // 10000
+    P_dig  = (NACA_dig % 10000) // 1000
+    Q_dig  = (NACA_dig % 1000) // 100
+    t_dig  = NACA_dig % 100
 
-    # Placeholder: mean camberline is zeroes
-    N = int(input("Enter desired number of points (N): "))
-    y_mc = np.zeros_like(x_axis)
-    print(x_axis)
-    print(y_mc)
+    cl_design = 3 * L_dig / 20
+    xcm = P_dig / 20
+    t = t_dig / 100
+    reflexed  = (Q_dig == 1)   # boolean flag for camberline branching  
+    print("...") # Placeholder
 
 print("---");
 print("Plotting airfoil...");
