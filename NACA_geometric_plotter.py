@@ -1,10 +1,13 @@
 # This is the script for NACA 4-series and 5-series airfoil plotting. 
 # The geometric data points of the airfoil are exported in (x,y) coordinates in a .csv file
 
-# Libraries for computation, plotting, and data collection
+# Libraries for computation, numerical solving, plotting, and data exporting
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.optimize import brentq
+from pathlib import Path
+
 
 # Collect NACA series airfoil from user input
 NACA_dig = int(input("Please enter your NACA airfoil 4-digit or 5-digit code: "))
@@ -75,7 +78,7 @@ if (NACA_dig // 10000) == 0:
     dy_mc = np.where((0 <= x_axis) & (x_axis < p), 2*m/(p**2) * (p - x_axis), 2*m/((1-p)**2) * (p - x_axis));
 
     # Define thickness across airfoil chord using max thickness % (t)
-    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1015*(x_axis**4));
+    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1036*(x_axis**4));
     theta = np.arctan(dy_mc);
 
     # Define upper and lower airfoil camber line coordinates
@@ -85,18 +88,18 @@ if (NACA_dig // 10000) == 0:
     y_lower = y_mc - y_t * np.cos(theta);
 
     # Process upper/lower x,y coordinates into a combined X,Y linspaces, respectively
-    # Note that the points go from TE to LE via lower surface and then LE to TE via upper surface.
-    # Clip the first index of each lower coordinates arrays to prevent doubling the LE point.
-    X = np.concatenate([np.flip(x_lower[1:]), x_upper]);
-    Y = np.concatenate([np.flip(y_lower[1:]), y_upper]);
+    # Note that the points go from TE to LE via upper surface and then LE to TE via lower surface (Selig format).
+    # Clip the first index of each upper coordinates arrays to prevent doubling the LE point.
+    X = np.concatenate([np.flip(x_upper[1:]), x_lower]);
+    Y = np.concatenate([np.flip(y_upper[1:]), y_lower]);
 
     # Combine combined X,Y coordinate linspaces into 2N-1 x 2 matrix
     XY_coords = np.column_stack((X,Y));
 
-    # Close the trailing edge at (1,0) since it is required by the Kutta condition,
-    # in addition to NACA airfoils are designed with LE and TE meeting at a single point
-    XY_coords[0, :]  = [1, 0]   # lower trailing edge
-    XY_coords[-1, :] = [1, 0]   # upper trailing edge
+    # Close the trailing edge at (1,0) since it current surface point calculation leaves floating point arithmetic error
+    # in addition Kutta condition is satisfied and VPM application is significantly simplified 
+    XY_coords[0, :]  = [1, 0]   # upper trailing edge
+    XY_coords[-1, :] = [1, 0]   # lower trailing edge
 
 # Assume otherwise 5 digits, follow procedure for handling 5-digit series
 else:
@@ -108,7 +111,7 @@ else:
 
     # Derive necessary parameters with digits and known convention
     cl_design = 3 * L_dig / 20
-    xcm = P_dig / 20
+    x_mc = P_dig / 20
     t = t_dig / 100  
     # Boolean thats easier to interpret than just reading the value of Q
     reflexed  = (Q_dig == 1)    
@@ -116,12 +119,18 @@ else:
     # Print % chord values
     print(f"NACA {NACA_dig} details: ")
     print(f"Design Lift Coefficient : {cl_design}");
-    print(f"Max Camber Position % : {xcm}");
+    print(f"Max Camber Position % : {x_mc}");
     print(f"Max Thickness % : {t}");
     if reflexed:
         print("Reflex: Yes");
     else:
         print("Reflex: No");
+    
+    # Define equation to derive parameter r needed for mean camberline equation
+    def r_equation(r, x_mc):
+        return r * (1 - np.sqrt(r / 3)) - x_mc
+    # Search in [0, 1] to get the smaller (physically relevant) root
+    r_sol = brentq(r_equation, 0, 1, args=(x_mc,))
     
     print("...") # Placeholder
 
@@ -147,9 +156,6 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 print("---");
-
-# .csv creation and exporting to saved_airfoil_coords folder
-from pathlib import Path
 
 # Before writing coordinate points to .csv file, check if dedicated folder exists to avoid conflicts
 Path("saved_airfoil_coords").mkdir(exist_ok=True)
