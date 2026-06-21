@@ -23,14 +23,14 @@ print("---")
 can_proceed_disc = False;
 while can_proceed_disc is False:
     # Read user input for desired N chordwise points
-    N = int(input("Enter desired number of chordwise points (N): "));
+    N = int(input("Enter desired number of chordwise points along x-axis (N): "));
     print("---");
     #
     # This needs verification step to handle unacceptable inputs
     #
     # Inform user of expected number of surface points as opposed to N chordwise points used for computation
     exp_ptnum = 2*N - 1;
-    print(f"User Note: {N} points along x-axis will be used for computation; running this script generates expected {exp_ptnum} upper/lower surface points.");
+    print(f"User Note: {N} points along x-axis will be used for computation; running this script generates {exp_ptnum} total upper/lower surface points.");
 
     # Get user confirmation for input & expected number of points
     while True:
@@ -42,7 +42,8 @@ while can_proceed_disc is False:
             break
         
         elif choice == 'N':
-            # Do nothing
+            # If no, ask user for airfoil code again
+            sys.exit() # Placeholder
             break
             
         else:
@@ -51,7 +52,9 @@ while can_proceed_disc is False:
 
 print(f"Proceeding to airfoil plotting with {N} chordwise points and {exp_ptnum} total surface points...");
 # Proceed with creating x-axis linspace with user-confirmed N points
-x_axis = np.linspace(0, 1, N); 
+
+beta = np.linspace(0, np.pi, N);
+x_axis = 0.5 * (1 - np.cos(beta));
 print("---");
 
 # At this point, assume that incorrect inputs have been filtered out by earlier input verification code block
