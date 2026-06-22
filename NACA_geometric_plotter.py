@@ -3,7 +3,6 @@
 
 # Libraries for computation, numerical solving, plotting, and data exporting
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import brentq
 from pathlib import Path

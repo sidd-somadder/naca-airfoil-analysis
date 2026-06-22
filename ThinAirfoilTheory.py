@@ -7,11 +7,12 @@
 # For future implementation: if airfoil coordinates are provided and are not NACA series, 
 # warn user that mean camber line will be approximated numerically which introduces uncertainty and noise to results
 
-# Master 
+import sys;
+import numpy as np;
+
 def run_tat_solver(input_file_name):
     target_code = "NACA";
-    print(input_file_name) # Placeholder
     if target_code in input_file_name:
-        print("This is a NACA code.");
+        
     else:
         print("This is not a NACA code.")
