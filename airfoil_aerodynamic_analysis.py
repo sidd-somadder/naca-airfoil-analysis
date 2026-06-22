@@ -4,6 +4,8 @@
 # The user can choose to save the results of all three scripts in the computation_results folder.
 
 from ThinAirfoilTheory import run_tat_solver
+from VortexPanelMethod import run_VPM_solver
+from xfoil_wrapper import run_xfoil_solver
 
 # Temporary sample file names to test cross-script function calls
 sample_file_name1 = "NACA_4412_N100.dat";
@@ -17,3 +19,7 @@ print("---");
 # Should print that input is not a NACA airfoil
 print(f"Using sample {sample_file_name2} : ")
 run_tat_solver(sample_file_name2);
+
+# Placeholder function calls
+run_VPM_solver(sample_file_name1);
+run_xfoil_solver(sample_file_name1);
