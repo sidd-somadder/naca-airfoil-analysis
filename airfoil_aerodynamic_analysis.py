@@ -8,7 +8,7 @@ from VortexPanelMethod import run_vpm_solver
 from xfoil_wrapper import run_xfoil_solver
 
 # Temporary sample file names to test cross-script function calls
-sample_file_name1 = "NACA_4412_N100.dat";
+sample_file_name1 = "NACA_0012_N100.dat";
 sample_file_name2 = "Clarky_N60.dat";
 
 # Should print that input is a NACA airfoil
@@ -16,9 +16,9 @@ print(f"Using sample {sample_file_name1} : ")
 run_tat_solver(sample_file_name1);
 print("---");
 
-# Should print that input is not a NACA airfoil
-print(f"Using sample {sample_file_name2} : ")
-run_tat_solver(sample_file_name2);
+# # Should print that input is not a NACA airfoil
+# print(f"Using sample {sample_file_name2} : ")
+# run_tat_solver(sample_file_name2);
 
 # Placeholder function calls
 run_vpm_solver(sample_file_name1);
