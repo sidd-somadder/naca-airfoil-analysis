@@ -80,7 +80,7 @@ if (NACA_dig // 10000) == 0:
 
     # Define thickness across airfoil chord using max thickness % (t)
     # Modified NACA thickness formula using 0.1036 (vs. original 0.1015)
-    # Enforces exact TE closure (y_t = 0 at x = 1) without artificial slope discontinuities. Shape deviation < 0.1% chord near TE only. 
+    # Enforces exact TE closure (y_t = 0 at x = 1) without significant slope error. Shape deviation < 0.1% chord near TE only. 
     y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1036*(x_axis**4));
     theta = np.arctan(dy_mc);
 
