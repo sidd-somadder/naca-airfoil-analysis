@@ -12,6 +12,22 @@ import numpy as np;
 import matplotlib.pyplot as plt;
 import scipy.integrate as scpi;
 
+# When non-NACA or improper NACA inputs are given in file name, ask if user wants to proceed/skip with approximated TAT results
+def ask_user_tat_fallback():
+    print("WARNING: Non-NACA or improper NACA airfoil code detected. TAT requires a mean camberline equation.")
+    print("Options:")
+    print("  [1] Proceed with numerical camberline approximation (results may have higher error)")
+    print("  [2] Skip TAT solver and continue with VPM and XFOIL only")
+    
+    # Repeat until proper input is provided by user.
+    while True:
+        choice = input("Enter 1 or 2: ").strip()
+        if choice == "1":
+            return "numerical"
+        elif choice == "2":
+            return "skip"
+        else:
+            print("Invalid input, please enter 1 or 2.")
 
 def run_tat_solver(input_file_name):
     target_code = "NACA";
@@ -35,61 +51,67 @@ def run_tat_solver(input_file_name):
         # Extract specific NACA code
         code = int(input_file_name.split("_")[1]);
 
-        ## include if-else statement to distinguise 4-digit and 5-digit airfoils
+        # If code is 4-digits, proceed with 4-digit algorithm.
+        if code // 10000 == 0:
+            # NACA 4-digit codes with form 00XX are symmetric airfoils; Assume no impossible airfoil codes 
+            symmetric = code // 100 == 0;
 
-        # NACA 4-digit codes with form 00XX are symmetric airfoils; Assume no impossible airfoil codes 
-        symmetric = code // 100 == 0;
+            if symmetric: 
+                # Use known thin airfoil theory results for symmetric airfoils.
+                # Lift coefficient, Leading Edge Moment coefficient, Quarter-Chord Moment coefficient
+                c_l = 2 * np.pi * alphas_rad;
+                c_mLE = (-1)*(c_l)/4;
+                c_mqc = np.zeros_like(alphas);
 
-        if symmetric: 
-            # Use known thin airfoil theory results for symmetric airfoils.
-            # Lift coefficient, Leading Edge Moment coefficient, Quarter-Chord Moment coefficient
-            c_l = 2 * np.pi * alphas_rad;
-            c_mLE = (-1)*(c_l)/4;
-            c_mqc = np.zeros_like(alphas);
+            # If not symmetric, use mean camberline equations and derive Fourier coefficients via integration
+            else:
+                # Extract digits from 4-digit series code
+                m_dig = code // 1000;
+                p_dig = ((code % 1000) // 100); 
 
-        # If not symmetric, use mean camberline equations and derive Fourier coefficients via integration
-        else:
-            # Extract digits from 4-digit series code
-            m_dig = code // 1000;
-            p_dig = ((code % 1000) // 100); 
-
-            # Define mean camberline slope equations forward and aft of max camber location
-            # Apply Glauert transformation (x/c = 0.5(1-cos(theta_0))) 
-            def dz1(t0,m,p):
-                return (2*m)/(p**2) * (p - 0.5*(1-np.cos(t0)));
-        
-            def dz2(t0,m,p):
-                return (2*m)/((1-p)**2) * (p - 0.5*(1-np.cos(t0)));
+                # Define mean camberline slope equations forward and aft of max camber location
+                # Apply Glauert transformation (x/c = 0.5(1-cos(theta_0))) 
+                def dz1(t0,m,p):
+                    return (2*m)/(p**2) * (p - 0.5*(1-np.cos(t0)));
             
-            # Convert NACA digits into chordwise % values
-            m = m_dig / 100;
-            p = p_dig / 10;
+                def dz2(t0,m,p):
+                    return (2*m)/((1-p)**2) * (p - 0.5*(1-np.cos(t0)));
+                
+                # Convert NACA digits into chordwise % values
+                m = m_dig / 100;
+                p = p_dig / 10;
 
-            # Initialize Fourier coefficients 
-            A_0 = np.zeros_like(alphas);
-            A_1 = np.zeros(1);
-            A_2 = np.zeros(1);
+                # Initialize Fourier coefficients 
+                A_0 = np.zeros_like(alphas);
+                A_1 = np.zeros(1);
+                A_2 = np.zeros(1);
 
-            # Use Glauert transformation to find angle of max camber position
-            t_c = np.arccos(1-2*p);
+                # Use Glauert transformation to find angle of max camber position
+                t_c = np.arccos(1-2*p);
 
-            # Integrate for Fourier coefficients
-            A_0 = alphas_rad - (1/np.pi) * (scpi.quad(dz1, 0, t_c, args=(m,p))[0] + scpi.quad(dz2, t_c, np.pi, args=(m,p))[0]);  
-            A_1 = (2/np.pi) * (scpi.quad(lambda t0: dz1(t0, m, p) * np.cos(t0), 0, t_c)[0] 
-                               + scpi.quad(lambda t0: dz2(t0, m, p) * np.cos(t0), t_c, np.pi)[0]);
-            A_2 = (2/np.pi) * (scpi.quad(lambda t0: dz1(t0, m, p) * np.cos(2*t0), 0, t_c)[0] 
-                               + scpi.quad(lambda t0: dz2(t0, m, p) * np.cos(2*t0), t_c, np.pi)[0]);
+                # Integrate for Fourier coefficients
+                A_0 = alphas_rad - (1/np.pi) * (scpi.quad(dz1, 0, t_c, args=(m,p))[0] + scpi.quad(dz2, t_c, np.pi, args=(m,p))[0]);  
+                A_1 = (2/np.pi) * (scpi.quad(lambda t0: dz1(t0, m, p) * np.cos(t0), 0, t_c)[0] 
+                                + scpi.quad(lambda t0: dz2(t0, m, p) * np.cos(t0), t_c, np.pi)[0]);
+                A_2 = (2/np.pi) * (scpi.quad(lambda t0: dz1(t0, m, p) * np.cos(2*t0), 0, t_c)[0] 
+                                + scpi.quad(lambda t0: dz2(t0, m, p) * np.cos(2*t0), t_c, np.pi)[0]);
 
-            # Use Fourier coefficients to derive lift and moments coefficients of asymmetric airfoils
-            c_l = np.pi * (2*A_0 + A_1);
-            c_mLE = (-1)*(c_l/4) - (np.pi/4)*(A_1 - A_2);
-            # Note, quarter-chord moment coefficient is theoretically constant
-            c_mqc = c_mqc = np.full_like(alphas, (np.pi/4) * (A_2 - A_1), dtype=float);
+                # Use Fourier coefficients to derive lift and moments coefficients of asymmetric airfoils
+                c_l = np.pi * (2*A_0 + A_1);
+                c_mLE = (-1)*(c_l/4) - (np.pi/4)*(A_1 - A_2);
+                # Note, quarter-chord moment coefficient is theoretically constant
+                c_mqc = np.full_like(alphas, (np.pi/4) * (A_2 - A_1), dtype=float);
                
     # If not a NACA code, warn user that mean camberline would need to be approximated numerically from surface points
     else:
-        print("This is not a NACA code. Non-NACA Airfoils are currently not handled by this solver.") # Placeholder
-        sys.exit();
+        decision = ask_user_tat_fallback()
+        # If user opts to skip approximated TAT results, return None
+        if decision == "skip":
+            # master script checks for None and skips TAT output
+            return None  
+        # Otherwise, continue with spline approximation
+        elif decision == "numerical":
+            sys.exit() # placeholder
     
 
 
