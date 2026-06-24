@@ -10,6 +10,7 @@
 import sys;
 import numpy as np;
 import matplotlib.pyplot as plt;
+from scipy.integrate import quad;
 
 
 def run_tat_solver(input_file_name):
@@ -34,7 +35,9 @@ def run_tat_solver(input_file_name):
         # Extract specific NACA code
         code = int(input_file_name.split("_")[1]);
 
-        # NACA codes with form 00XX are symmetric airfoils; Assume no impossible airfoil codes 
+        ## include if-else statement to distinguise 4-digit and 5-digit airfoils
+
+        # NACA 4-digit codes with form 00XX are symmetric airfoils; Assume no impossible airfoil codes 
         symmetric = code // 100 == 0;
 
         if symmetric: 
@@ -44,13 +47,22 @@ def run_tat_solver(input_file_name):
             c_mLE = (-1)*(c_l)/4;
             c_mqc = np.zeros_like(alphas);
 
-        # Otherwise, use mean camberline equations and derive Fourier coefficients via numerical integration
+        # If not symmetric, use mean camberline equations and derive Fourier coefficients via integration
         else:
-            sys.exit(); # Placeholder
+            
+
+
+            # Initialize Fourier coefficients 
+            A_0 = np.zeros_like(alphas);
+            A_1 = np.zeros();
+            A_2 = np.zeros();
+    
+
     
     # If not a NACA code, warn user that mean camberline would need to be approximated numerically from surface points
     else:
-        print("This is not a NACA code.") # Placeholder
+        print("This is not a NACA code. Non-NACA Airfoils are currently not handled by this solver.") # Placeholder
+        sys.exit();
     
 
 
