@@ -156,7 +156,7 @@ def asym_4digit_solver(code, alphas_rad):
     p = p_dig / 10;
 
     # Initialize Fourier coefficients 
-    A_0 = np.zeros_like(alphas);
+    A_0 = np.zeros_like(alphas_rad);
     A_1 = np.zeros(1);
     A_2 = np.zeros(1);
 
@@ -176,7 +176,7 @@ def asym_4digit_solver(code, alphas_rad):
     c_l = np.pi * (2*A_0 + A_1);
     c_mLE = (-1)*(c_l/4) - (np.pi/4)*(A_1 - A_2);
     # Note, quarter-chord moment coefficient is theoretically constant
-    c_mqc = np.full_like(alphas, (np.pi/4) * (A_2 - A_1), dtype=float);
+    c_mqc = np.full_like(alphas_rad, (np.pi/4) * (A_2 - A_1), dtype=float);
 
     # Initialize and fill coefficient matrix 
     coeffs = np.zeros(3);
