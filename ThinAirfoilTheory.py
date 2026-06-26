@@ -5,7 +5,7 @@
 # Currently, this thin airfoil theory generator can only handle NACA 4-digit series 
 
 # For future implementation: if airfoil coordinates are provided and are not NACA series, 
-# warn user that mean camber line will be approximated numerically which introduces uncertainty and noise to results
+# warn user that mean camber line will be approximated via spline which introduces uncertainty and noise to results
 
 import sys;
 import numpy as np;
@@ -38,7 +38,7 @@ def run_tat_solver(input_file_name, angle_param):
     spacing = angle_param[2];
 
     # For now, use one degree spacing; create linspace of same angles in radians
-    alphas = np.linspace(-5,10,(sup-inf+1));
+    alphas = np.linspace(-5,10,spacing*(sup-inf) + 1);
     alphas_rad = alphas*(np.pi/180);
 
     # Initialize coefficients' arrays
@@ -82,7 +82,7 @@ def run_tat_solver(input_file_name, angle_param):
                 printvals(alphas, c_l, c_mLE, c_mqc);
                 coeff_visualizer(alphas, c_l, c_mLE, c_mqc);
         
-        # If a 5-digit airfoil, proceed with deriving MCL equation w 5-digit algorith; 
+        # If a 5-digit airfoil, proceed with deriving MCL equation with 5-digit algorithm; 
         elif len(code_name) == 5:
             # First search if name belongs to a standard series
             # If not, numerically derive parameters using function in NACA_geometric plotter script
