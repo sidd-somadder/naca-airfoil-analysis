@@ -43,32 +43,32 @@ def run_tat_solver(input_file_name, angle_param):
             if result is None:
                 return None;
             coeffs, angle_zero_lift = result;
-      
-        # If code is 4-digits, proceed with 4-digit algorithm.
-        if len(code_name) == 4:
-            # NACA 4-digit codes with form 00XX are symmetric airfoils; Assume for now no impossible airfoil codes 
-            symmetric = code // 100 == 0;
+        else:
+            # If code is 4-digits, proceed with 4-digit algorithm.
+            if len(code_name) == 4:
+                # NACA 4-digit codes with form 00XX are symmetric airfoils; Assume for now no impossible airfoil codes 
+                symmetric = code // 100 == 0;
 
-            if symmetric: 
-                # Call SYMMETRIC solver function
-                coeffs, angle_zero_lift = sym_4digit_solver(code, alphas_rad)
-            else:
-                # Call ASYMMETRIC solver function (integrates for Fourier coefficients and derives coefficients)
-                coeffs, angle_zero_lift = asym_4digit_solver(code, alphas_rad)
-        
-        # If a 5-digit airfoil, proceed with deriving MCL equation with 5-digit algorithm 
-        elif len(code_name) == 5:
-            # First search if name belongs to a standard series
-            # If not, numerically derive parameters using function in NACA_geometric plotter script
-            print("5-digit NACA airfoils not currently available"); # Placeholder
+                if symmetric: 
+                    # Call SYMMETRIC solver function
+                    coeffs, angle_zero_lift = sym_4digit_solver(code, alphas_rad)
+                else:
+                    # Call ASYMMETRIC solver function (integrates for Fourier coefficients and derives coefficients)
+                    coeffs, angle_zero_lift = asym_4digit_solver(code, alphas_rad)
+            
+            # If a 5-digit airfoil, proceed with deriving MCL equation with 5-digit algorithm 
+            elif len(code_name) == 5:
+                # First search if name belongs to a standard series
+                # If not, numerically derive parameters using function in NACA_geometric plotter script
+                print("5-digit NACA airfoils not currently available"); # Placeholder
 
-        # If NACA code doesn't abide by 4-digit or 5-digit series format, 
-        # warn user that mean camberline would need to be approximated via spline numerically from surface points
-        else: 
-            result = handle_tat_fallback(input_file_name, alphas_rad);
-            if result is None:
-                return None;
-            coeffs, angle_zero_lift = result;
+            # If NACA code doesn't abide by 4-digit or 5-digit series format, 
+            # warn user that mean camberline would need to be approximated via spline numerically from surface points
+            else: 
+                result = handle_tat_fallback(input_file_name, alphas_rad);
+                if result is None:
+                    return None;
+                coeffs, angle_zero_lift = result;
                
     # If not a NACA code, warn user that mean camberline would need to be approximated via spline numerically from surface points
     else:
