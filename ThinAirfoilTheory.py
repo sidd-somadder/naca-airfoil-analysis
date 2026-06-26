@@ -59,19 +59,19 @@ def run_tat_solver(input_file_name, angle_param):
 
             if symmetric: 
                 # Use known thin airfoil theory results for symmetric airfoils.
-                # Lift coefficient, Leading Edge Moment coefficient, Quarter-Chord Moment coefficient
                 c_l = 2 * np.pi * alphas_rad;
                 c_mLE = (-1)*(c_l)/4;
                 c_mqc = np.zeros_like(alphas);
+                angle_zero_lift = 0;
             
                 # print values for verification (temp)
-                printvals(alphas, c_l, c_mLE, c_mqc);
+                printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
                 coeff_visualizer(alphas, c_l, c_mLE, c_mqc);
 
             # If not symmetric, use mean camberline equations and derive Fourier coefficients via integration
             else:
                 # Call solver function and get coefficient matrix
-                coeffs = asym_4digit_solver(code, alphas_rad)
+                coeffs, angle_zero_lift = asym_4digit_solver(code, alphas_rad)
 
                 # Extract coefficients from matrix
                 c_l = coeffs[:,0];
@@ -79,7 +79,7 @@ def run_tat_solver(input_file_name, angle_param):
                 c_mqc = coeffs[:,2];
 
                 # print & plot values for verification (temp)
-                printvals(alphas, c_l, c_mLE, c_mqc);
+                printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
                 coeff_visualizer(alphas, c_l, c_mLE, c_mqc);
         
         # If a 5-digit airfoil, proceed with deriving MCL equation with 5-digit algorithm; 
@@ -116,8 +116,10 @@ def spline_TAT_solver(file):
         sys.exit();
 
 # temp print statements to verify values w/ calculator
-def printvals(a, l, mLE, mqc):
+def printvals(a, l, mLE, mqc, zla):
     print(f"alphas : {a}");
+    print("---");
+    print(f"Zero-Lift Angle = {zla} deg.");
     print("---");
     print(f"lift coeff : {l}");
     print("---");
@@ -167,10 +169,10 @@ def asym_4digit_solver(code, alphas_rad):
     A_0 = alphas_rad - (1/np.pi) * (scpi.quad(dz1, 0, t_c, args=(m,p))[0] + scpi.quad(dz2, t_c, np.pi, args=(m,p))[0]); 
 
     A_1 = (2/np.pi) * (scpi.quad(lambda t0: dz1(t0, m, p) * np.cos(t0), 0, t_c)[0] 
-                                + scpi.quad(lambda t0: dz2(t0, m, p) * np.cos(t0), t_c, np.pi)[0]);
+                        + scpi.quad(lambda t0: dz2(t0, m, p) * np.cos(t0), t_c, np.pi)[0]);
     
     A_2 = (2/np.pi) * (scpi.quad(lambda t0: dz1(t0, m, p) * np.cos(2*t0), 0, t_c)[0] 
-                                + scpi.quad(lambda t0: dz2(t0, m, p) * np.cos(2*t0), t_c, np.pi)[0]);
+                        + scpi.quad(lambda t0: dz2(t0, m, p) * np.cos(2*t0), t_c, np.pi)[0]);
 
     # Use Fourier coefficients to derive lift and moments coefficients of asymmetric airfoils
     c_l = np.pi * (2*A_0 + A_1);
@@ -178,11 +180,12 @@ def asym_4digit_solver(code, alphas_rad):
     # Note, quarter-chord moment coefficient is theoretically constant
     c_mqc = np.full_like(alphas_rad, (np.pi/4) * (A_2 - A_1), dtype=float);
 
-    # Initialize and fill coefficient matrix 
-    coeffs = np.empty((alphas_rad.size, 3));
-    coeffs[:,0] = c_l;
-    coeffs[:,1] = c_mLE;
-    coeffs[:,2] = c_mqc;
+    # Compute zero lift angle of attack by expanding c_l and setting to 0
+    zero_lift_angle = (1/np.pi) * (scpi.quad(lambda t0: dz1(t0, m, p) * (1-np.cos(t0)), 0, t_c)[0] 
+                                + scpi.quad(lambda t0: dz2(t0, m, p) * (1-np.cos(t0)), t_c, np.pi)[0]);
 
-    # Retrun coefficients in matrix form
-    return coeffs;
+    # express zero lift angle in degrees
+    zero_lift_angle = (180/np.pi)*zero_lift_angle;
+
+    # Return coefficients in matrix form and zero lift angle of attack as a tuple
+    return np.column_stack((c_l, c_mLE, c_mqc)), zero_lift_angle;
