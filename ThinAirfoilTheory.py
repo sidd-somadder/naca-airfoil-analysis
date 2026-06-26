@@ -12,33 +12,16 @@ import numpy as np;
 import matplotlib.pyplot as plt;
 import scipy.integrate as scpi;
 
-# When non-NACA or improper NACA inputs are given in file name, ask if user wants to proceed/skip with approximated TAT results
-def ask_user_tat_fallback():
-    print("WARNING: Non-NACA or improper NACA airfoil code detected. TAT requires a mean camberline equation.")
-    print("Options:")
-    print("  [1] Proceed with numerical camberline approximation (results may have higher error)")
-    print("  [2] Skip TAT solver and continue with VPM and XFOIL only")
-    
-    # Repeat until proper input is provided by user.
-    while True:
-        choice = input("Enter 1 or 2: ").strip()
-        if choice == "1":
-            return "numerical"
-        elif choice == "2":
-            return "skip"
-        else:
-            print("Invalid input, please enter 1 or 2.")
-
 def run_tat_solver(input_file_name, angle_param):
     target_code = "NACA";
 
-    # Currently using fixed values for AOA range & resolution in master; in future user has control over this.
+    # Extract lower angle bound, upper angle bound, and spacing between each whole number
     inf = angle_param[0];
     sup = angle_param[1];
     spacing = angle_param[2];
 
-    # For now, use one degree spacing; create linspace of same angles in radians
-    alphas = np.linspace(-5,10,spacing*(sup-inf) + 1);
+    # Generate angle array based on extracted parameters
+    alphas = np.linspace(inf,sup,spacing*(sup-inf) + 1);
     alphas_rad = alphas*(np.pi/180);
 
     # Initialize coefficients' arrays
@@ -50,70 +33,59 @@ def run_tat_solver(input_file_name, angle_param):
     if target_code in input_file_name:     
         # Extract specific NACA code
         code_name = input_file_name.split("_")[1];
-        code = int(code_name);     
-
+        # Check if NACA code has any letters/other characters
+        try:
+            code = int(code_name);
+        except ValueError:
+            # If error occurs (has non-numbers in code), 
+            # warn user that mean camberline would need to be approximated via spline numerically from surface points
+            result = handle_tat_fallback(input_file_name, alphas_rad);
+            if result is None:
+                return None;
+            coeffs, angle_zero_lift = result;
+      
         # If code is 4-digits, proceed with 4-digit algorithm.
         if len(code_name) == 4:
-            # NACA 4-digit codes with form 00XX are symmetric airfoils; Assume no impossible airfoil codes 
+            # NACA 4-digit codes with form 00XX are symmetric airfoils; Assume for now no impossible airfoil codes 
             symmetric = code // 100 == 0;
 
             if symmetric: 
-                # Use known thin airfoil theory results for symmetric airfoils.
-                c_l = 2 * np.pi * alphas_rad;
-                c_mLE = (-1)*(c_l)/4;
-                c_mqc = np.zeros_like(alphas);
-                angle_zero_lift = 0;
-            
-                # print values for verification (temp)
-                printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
-                coeff_visualizer(alphas, c_l, c_mLE, c_mqc);
-
-            # If not symmetric, use mean camberline equations and derive Fourier coefficients via integration
+                # Call SYMMETRIC solver function
+                coeffs, angle_zero_lift = sym_4digit_solver(code, alphas_rad)
             else:
-                # Call solver function and get coefficient matrix
+                # Call ASYMMETRIC solver function (integrates for Fourier coefficients and derives coefficients)
                 coeffs, angle_zero_lift = asym_4digit_solver(code, alphas_rad)
-
-                # Extract coefficients from matrix
-                c_l = coeffs[:,0];
-                c_mLE = coeffs[:,1];
-                c_mqc = coeffs[:,2];
-
-                # print & plot values for verification (temp)
-                printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
-                coeff_visualizer(alphas, c_l, c_mLE, c_mqc);
         
-        # If a 5-digit airfoil, proceed with deriving MCL equation with 5-digit algorithm; 
+        # If a 5-digit airfoil, proceed with deriving MCL equation with 5-digit algorithm 
         elif len(code_name) == 5:
             # First search if name belongs to a standard series
             # If not, numerically derive parameters using function in NACA_geometric plotter script
             print("5-digit NACA airfoils not currently available"); # Placeholder
 
+        # If NACA code doesn't abide by 4-digit or 5-digit series format, 
+        # warn user that mean camberline would need to be approximated via spline numerically from surface points
         else: 
-            decision = ask_user_tat_fallback()
-            # If user opts to skip approximated TAT results, return None
-            if decision == "skip":
-                # master script checks for None and skips TAT output
-                return None  
-            # Otherwise, continue with spline approximation
-            elif decision == "numerical":
-                spline_TAT_solver(input_file_name);
+            result = handle_tat_fallback(input_file_name, alphas_rad);
+            if result is None:
+                return None;
+            coeffs, angle_zero_lift = result;
                
-    # If not a NACA code, warn user that mean camberline would need to be approximated numerically from surface points
+    # If not a NACA code, warn user that mean camberline would need to be approximated via spline numerically from surface points
     else:
-        decision = ask_user_tat_fallback()
-        # If user opts to skip approximated TAT results, return None
-        if decision == "skip":
-            # master script checks for None and skips TAT output
-            return None  
-        # Otherwise, continue with spline approximation
-        elif decision == "numerical":
-            spline_TAT_solver(input_file_name);
+        result = handle_tat_fallback(input_file_name, alphas_rad);
+        if result is None:
+            return None;
+        coeffs, angle_zero_lift = result;
+        # To be implemented
 
-def spline_TAT_solver(file):
-        # Spline solver on coordinates
-        # placeholder
-        print(file);
-        sys.exit();
+    # Extract coefficients from matrix
+    c_l = coeffs[:,0];
+    c_mLE = coeffs[:,1];
+    c_mqc = coeffs[:,2];
+
+    # print & plot values for verification (temp)
+    printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
+    coeff_visualizer(alphas, c_l, c_mLE, c_mqc);
 
 # temp print statements to verify values w/ calculator
 def printvals(a, l, mLE, mqc, zla):
@@ -139,8 +111,16 @@ def coeff_visualizer(a, l, mLE, mqc):
     ax.set_title('TAT — Quick Check'); ax.legend(); ax.grid(True, linestyle=':', alpha=0.6)
     plt.tight_layout(); plt.show()
 
-def asym_4digit_solver(code, alphas_rad):
+def sym_4digit_solver(code, alphas_rad):
+    # Use known thin airfoil theory results for symmetric airfoils.
+    c_l = 2 * np.pi * alphas_rad;
+    c_mLE = (-1)*(c_l)/4;
+    c_mqc = np.zeros_like(alphas_rad);
+    zero_lift_angle = 0;
 
+    return np.column_stack((c_l, c_mLE, c_mqc)), zero_lift_angle;
+
+def asym_4digit_solver(code, alphas_rad):
     # Extract digits from 4-digit series code
     m_dig = code // 1000;
     p_dig = ((code % 1000) // 100); 
@@ -189,3 +169,42 @@ def asym_4digit_solver(code, alphas_rad):
 
     # Return coefficients in matrix form and zero lift angle of attack as a tuple
     return np.column_stack((c_l, c_mLE, c_mqc)), zero_lift_angle;
+
+def spline_TAT_solver(file, alphas_rad):
+        # Spline solver on coordinates
+        # placeholder
+        print(file);
+        c_l = np.zeros_like(alphas_rad);
+        c_mLE = np.zeros_like(alphas_rad);
+        c_mqc = np.zeros_like(alphas_rad);
+        zero_lift_angle = 0;
+        return np.column_stack((c_l, c_mLE, c_mqc)), zero_lift_angle;
+
+# When non-NACA or improper NACA inputs are given in file name, ask if user wants to proceed/skip with approximated TAT results
+def ask_user_tat_fallback():
+    print("WARNING: Non-NACA or improper NACA airfoil name detected. TAT requires a mean camberline equation.")
+    print("Options:")
+    print("  [1] Proceed with numerical camberline approximation (results may have higher error)")
+    print("  [2] Skip TAT solver and continue with VPM and XFOIL only")
+    
+    # Repeat until proper input is provided by user.
+    while True:
+        choice = input("Enter 1 or 2: ").strip()
+        if choice == "1":
+            return "numerical"
+        elif choice == "2":
+            return "skip"
+        else:
+            print("Invalid input, please enter 1 or 2.")
+
+# Driver function for ask_user_tat_fallback() to decide what to do if non-NACA or improper NACA code 
+# Kept separate from aforementioned function for manual testing reasons
+def handle_tat_fallback(input_file_name, alphas_rad):
+    # Call ask_user_tat_fallback() to give warning & get decision on spline solver or skipping
+    decision = ask_user_tat_fallback()
+    if decision == "skip":
+        # Master script interprets "None" to skip TAT visualization 
+        return None
+    elif decision == "numerical":
+        # Calls spline_TAT_solver returning coefficient matrix and zero-lift angle as a tuple 
+        return spline_TAT_solver(input_file_name, alphas_rad)
