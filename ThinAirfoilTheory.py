@@ -74,9 +74,9 @@ def run_tat_solver(input_file_name, angle_param):
                 coeffs = asym_4digit_solver(code, alphas_rad)
 
                 # Extract coefficients from matrix
-                c_l = coeffs[0];
-                c_mLE = coeffs[1];
-                c_mqc = coeffs[2];
+                c_l = coeffs[:,0];
+                c_mLE = coeffs[:,1];
+                c_mqc = coeffs[:,2];
 
                 # print & plot values for verification (temp)
                 printvals(alphas, c_l, c_mLE, c_mqc);
@@ -179,10 +179,10 @@ def asym_4digit_solver(code, alphas_rad):
     c_mqc = np.full_like(alphas_rad, (np.pi/4) * (A_2 - A_1), dtype=float);
 
     # Initialize and fill coefficient matrix 
-    coeffs = np.zeros(3);
-    coeffs[0] = c_l;
-    coeffs[1] = c_mLE;
-    coeffs[2] = c_mqc;
+    coeffs = np.empty((alphas_rad.size, 3));
+    coeffs[:,0] = c_l;
+    coeffs[:,1] = c_mLE;
+    coeffs[:,2] = c_mqc;
 
     # Retrun coefficients in matrix form
     return coeffs;
