@@ -12,16 +12,10 @@ import numpy as np;
 import matplotlib.pyplot as plt;
 import scipy.integrate as scpi;
 
-def run_tat_solver(input_file_name, angle_param):
+def run_tat_solver(input_file_name, alphas):
     target_code = "NACA";
 
-    # Extract lower angle bound, upper angle bound, and spacing between each whole number
-    inf = angle_param[0];
-    sup = angle_param[1];
-    spacing = angle_param[2];
-
-    # Generate angle array based on extracted parameters
-    alphas = np.linspace(inf,sup,spacing*(sup-inf) + 1);
+    # Since angle linespace creation is handled by the master script; extract angles in radians for computation.
     alphas_rad = alphas*(np.pi/180);
 
     # Initialize coefficients' arrays
