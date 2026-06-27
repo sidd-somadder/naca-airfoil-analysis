@@ -6,8 +6,38 @@
 from ThinAirfoilTheory import run_tat_solver
 from VortexPanelMethod import run_vpm_solver
 from xfoil_wrapper import run_xfoil_solver
+import numpy as np;
 
-angle_param = [-5, 10, 2];
+def get_angle_params():
+    print("-" * 10)
+    print("Angle of Attack Range Configuration")
+    print("-" * 3)
+    print("Define the range over which all solvers will run.")
+    print("Results will be computed and plotted across this range.")
+    print("(All values in degrees)")
+    print("-" * 10)
+
+    inf = float(input("  Lower bound in whole degrees (e.g. -5): "))
+    sup = float(input("  Upper bound  (e.g. 15): "))
+
+    print()
+    print("Step size determines how many points are computed per degree.")
+    print("Finer step size = more points per degree, e.g.:")
+    print("  1 → one point per degree  (fast, coarse)")
+    print("  0.5 → two points per degree     (balanced)")
+    print("  0.25 → four points per degree    (fine)")
+
+    # Resolution of angular range expressed as step size
+    step = float(input("  Step size in degrees (e.g. 1, 0.5, 0.25): "))
+
+    print("-" * 10)
+    print(f"Running solvers from {inf}° to {sup}° at {step}° intervals.")
+    print("=" * 10)
+    print()
+
+    return np.arange(inf, sup + step, step)
+
+angle_param = get_angle_params();
 
 # Temporary sample file names to test cross-script function calls
 sample_file_name1 = "ClarkY_N100.dat";
