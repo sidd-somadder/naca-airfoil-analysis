@@ -8,6 +8,10 @@ from VortexPanelMethod import run_vpm_solver
 from xfoil_wrapper import run_xfoil_solver
 import numpy as np;
 
+def get_file_name():
+    print();
+
+# Function used to get user input for desired angle of attack mesh
 def get_angle_params():
     print("-" * 10)
     print("Angle of Attack Range Configuration")
@@ -17,9 +21,11 @@ def get_angle_params():
     print("(All values in degrees)")
     print("-" * 10)
 
+    # Upper and lower bounds of range is defined by user input
     inf = float(input("  Lower bound in whole degrees (e.g. -5): "))
     sup = float(input("  Upper bound  (e.g. 15): "))
 
+    # User determines step-size in degrees
     print()
     print("Step size determines how many points are computed per degree.")
     print("Finer step size = more points per degree, e.g.:")
@@ -30,17 +36,24 @@ def get_angle_params():
     # Resolution of angular range expressed as step size
     step = float(input("  Step size in degrees (e.g. 1, 0.5, 0.25): "))
 
-    print("-" * 10)
-    print(f"Running solvers from {inf}° to {sup}° at {step}° intervals.")
-    print("=" * 10)
-    print()
-
-    return np.arange(inf, sup + step, step)
-
+    # Inform user of their desired range. Confirm with user. 
+    while True:
+    # Read user input, strip whitespace, and convert to uppercase
+        choice = input(f"Solvers will run from {inf}° to {sup}° at {step}° intervals. Proceed? (Y/N)").strip().upper()
+        if choice == 'Y':
+            # If yes, return linspace from user-input angle parameters
+            return np.arange(inf, sup + step, step)
+        
+        elif choice == 'N':
+            # If no, ask user for angle parameters number via recursive function call;
+            return get_angle_params();     
+        else:
+            print("Invalid choice. Please enter Y or N.");
+    
 angle_param = get_angle_params();
 
 # Temporary sample file names to test cross-script function calls
-sample_file_name1 = "ClarkY_N100.dat";
+sample_file_name1 = "NACA_2412_N100.dat";
 sample_file_name2 = "Clarky_N60.dat";
 
 # Should print that input is a NACA airfoil
