@@ -4,13 +4,12 @@
 
 # Currently, this thin airfoil theory generator can only handle NACA 4-digit series 
 
-# For future implementation: if airfoil coordinates are provided and are not NACA series, 
-# warn user that mean camber line will be approximated via spline which introduces uncertainty and noise to results
-
 import sys;
 import numpy as np;
 import matplotlib.pyplot as plt;
 import scipy.integrate as scpi;
+import pandas as pd;
+import os;
 
 def run_tat_solver(input_file_name, alphas):
     target_code = "NACA";
@@ -45,7 +44,7 @@ def run_tat_solver(input_file_name, alphas):
 
                 if symmetric: 
                     # Call SYMMETRIC solver function
-                    coeffs, angle_zero_lift = sym_4digit_solver(code, alphas_rad)
+                    coeffs, angle_zero_lift = sym_4digit_solver(alphas_rad)
                 else:
                     # Call ASYMMETRIC solver function (integrates for Fourier coefficients and derives coefficients)
                     coeffs, angle_zero_lift = asym_4digit_solver(code, alphas_rad)
@@ -55,6 +54,7 @@ def run_tat_solver(input_file_name, alphas):
                 # First search if name belongs to a standard series
                 # If not, numerically derive parameters using function in NACA_geometric plotter script
                 print("5-digit NACA airfoils not currently available"); # Placeholder
+                return None;
 
             # If NACA code doesn't abide by 4-digit or 5-digit series format, 
             # warn user that mean camberline would need to be approximated via spline numerically from surface points
@@ -80,6 +80,7 @@ def run_tat_solver(input_file_name, alphas):
     # print & plot values for verification (temp)
     printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
     coeff_visualizer(alphas, c_l, c_mLE, c_mqc);
+    export_tat_results(alphas, coeffs, input_file_name, angle_zero_lift)
 
 # temp print statements to verify values w/ calculator
 def printvals(a, l, mLE, mqc, zla):
@@ -105,7 +106,7 @@ def coeff_visualizer(a, l, mLE, mqc):
     ax.set_title('TAT — Quick Check'); ax.legend(); ax.grid(True, linestyle=':', alpha=0.6)
     plt.tight_layout(); plt.show()
 
-def sym_4digit_solver(code, alphas_rad):
+def sym_4digit_solver(alphas_rad):
     # Use known thin airfoil theory results for symmetric airfoils.
     c_l = 2 * np.pi * alphas_rad;
     c_mLE = (-1)*(c_l)/4;
@@ -202,3 +203,31 @@ def handle_tat_fallback(input_file_name, alphas_rad):
     elif decision == "numerical":
         # Calls spline_TAT_solver returning coefficient matrix and zero-lift angle as a tuple 
         return spline_TAT_solver(input_file_name, alphas_rad)
+    
+# Function that saves aerodynamics coefficients to a .csv file for master script to plot
+def export_tat_results(alphas, coeffs, input_file_name, zl_ang):
+    
+    # Define the output folder relative to the directory of this script
+    output_dir = os.path.join(os.path.dirname(__file__), "computation_results")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Strip .dat extension for clean output naming
+    identifier = input_file_name.replace(".dat", "")
+    output_path = os.path.join(output_dir, f"TAT_{identifier}_results.csv")
+
+    # Write airfoil name & zero-lift angle as metadata comment header
+    with open(output_path, "w") as f:
+        f.write(f"# Thin Airfoil Theory Results: {identifier}\n")
+        f.write(f"# Zero-lift angle of attack: {zl_ang:.4f} deg\n")
+
+    # Use Pandas to format information in coefficient matrix via dataframe
+    df = pd.DataFrame({
+        "alpha_deg"  : alphas,
+        "c_L"        : coeffs[:, 0],
+        "c_M_LE"     : coeffs[:, 1],
+        "c_M_QC"     : coeffs[:, 2]
+    })
+
+    # Convert coefficient matrix into .csv file and inform user of the output
+    df.to_csv(output_path, index=False, float_format="%.6f", mode="a")
+    print(f"TAT results exported: {output_path}")
