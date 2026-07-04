@@ -80,7 +80,7 @@ if (NACA_dig // 10000) == 0:
     # Define thickness across airfoil chord using max thickness % (t)
     # Modified NACA thickness formula using 0.1036 (vs. original 0.1015)
     # Enforces exact TE closure (y_t = 0 at x = 1) without significant slope error. Shape deviation < 0.1% chord near TE only. 
-    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1036*(x_axis**4));
+    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1015*(x_axis**4));
     theta = np.arctan(dy_mc);
 
     # Define upper and lower airfoil camber line coordinates
@@ -97,11 +97,6 @@ if (NACA_dig // 10000) == 0:
 
     # Combine combined X,Y coordinate linspaces into 2N-1 x 2 matrix
     XY_coords = np.column_stack((X,Y));
-
-    # Close the trailing edge at (1,0) since it current surface point calculation leaves floating point arithmetic error
-    # in addition Kutta condition is satisfied and VPM application is significantly simplified 
-    XY_coords[0, :]  = [1, 0]   # upper trailing edge
-    XY_coords[-1, :] = [1, 0]   # lower trailing edge
 
 # Assume otherwise 5 digits, follow procedure for handling 5-digit series
 else:
