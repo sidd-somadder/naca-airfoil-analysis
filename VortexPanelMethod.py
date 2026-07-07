@@ -19,7 +19,7 @@ def run_vpm_solver(geom_points):
 
 
 # Method that determines local induced velocity at collocation points (xi, zi) by panel between the jth and j+1th nodes
-def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta_j):
+def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta_j, pL_j):
     # Note, Katz uses (x,z) for coordinates instead of (x,y), I use the same convention here. Note: jp1 = j+1.
     # First, derive translated coordinates of the ith collocation point
     x_i_prime = x_i - x_j;
@@ -29,12 +29,10 @@ def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta_j):
     x_i_bar = x_i_prime * np.cos(beta_j) + z_i_prime * np.sin(beta_j);
     z_i_bar = -x_i_prime * np.sin(beta_j) + z_i_prime * np.cos(beta_j);
 
-    # Calculate panel length from panel node coordinates (x_j, z_j) and (x_jp1, z_jp1)
-    p_L = np.sqrt((z_jp1 - z_j)**2 + (x_jp1 - x_j)**2);
-
     # Local induced velocity (Katz eqn. 11.44 & 11.45)
-    ubar = loc_gam/(2*np.pi) * (np.arctan2(z_i_bar,(x_i_bar-p_L)) - np.arctan2(z_i_bar,x_i_bar)) 
-    wbar = -loc_gam/(4*np.pi) * np.log(((x_i_bar)**2 + (z_i_bar)**2)/((x_i_bar - p_L)**2 + (z_i_bar)**2))
+    # Note: x_jp1_bar = panel length (pL_j) 
+    ubar = loc_gam/(2*np.pi) * (np.arctan2(z_i_bar,(x_i_bar-pL_j)) - np.arctan2(z_i_bar,x_i_bar)) 
+    wbar = -loc_gam/(4*np.pi) * np.log(((x_i_bar)**2 + (z_i_bar)**2)/((x_i_bar - pL_j)**2 + (z_i_bar)**2))
     
     # Use tangential angle again to rotate velocity vector to cartesian coordinates from panel coordinates
     u_i = ubar * np.cos(beta_j) - wbar * np.sin(beta_j);
@@ -44,7 +42,7 @@ def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta_j):
     return u_i, w_i;
 
 # 
-def V2DC_influence_matrix(geom_pts, midpoints, beta):
+def V2DC_influence_matrix(geom_pts, midpoints, beta, plengths):
     N = len(geom_pts);
 
     A = np.zeros((N,N));
@@ -71,7 +69,7 @@ def V2DC_influence_matrix(geom_pts, midpoints, beta):
                A[i,j] = -0.5;
             else:
                # Calculate singularity vortex element influenced velocities
-               u, w = V2DC_induced_vel(1, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta[j]);
+               u, w = V2DC_induced_vel(1, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta[j], plengths[j]);
                # Using Katz eqn. 11.49
                A[i,j] = u * np.cos(beta[i]) - w * np.sin(beta[i]);  
     
