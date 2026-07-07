@@ -120,7 +120,38 @@ def get_midpoints(geom_pts):
 
     return midpoints;
 
+# Using coordinate points, get the tangential angle and length of each panel.
+def get_geom_params(geom_points):
+    N = len(geom_points);
 
+    # For N panels, there are N angles
+    beta = np.zeros(N);
+    p_lengths = np.zeros(N);
+
+    for k in range(N):
+        # Get kth panel node coordinates.
+        x_k = geom_points[k,0];
+        z_k = geom_points[k,1];
+
+        # Get k+1th panel node coordinates; loop back to first node if the kth node is the Nth node.
+        if (k+1) == N:
+            x_kp1 = geom_points[0,0];
+            z_kp1 = geom_points[0,1];        
+        else:
+            x_kp1 = geom_points[k+1,0];
+            z_kp1 = geom_points[k+1,1];
+        
+        # Calculate vertical difference dz and horizontal difference dx.
+        dx = x_kp1 - x_k;
+        dz = z_kp1 - z_k;
+
+        # Compute tangential angle using arctan.
+        beta[k] = np.arctan2(dz,dx);
+
+        # Calculate length by distance formula.
+        p_lengths[k] = np.sqrt((dz)**2 + (dx)**2);
+    
+    return beta, p_lengths;
 
 
 
