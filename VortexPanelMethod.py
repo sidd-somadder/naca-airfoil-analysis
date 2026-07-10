@@ -12,14 +12,18 @@ import os;
 import math;
 
 # Assume points are already processed into reverse Selig format
-def run_vpm_solver(geom_points):
+def run_vpm_solver(geom_points, alphas):
+    beta, panel_lengths, midpoints = get_geom_params(geom_points);
 
-    print("Placeholder");
+    A = V2DC_influence_matrix(geom_points, midpoints, beta, panel_lengths);
+    RHS = V2DC_RHS_vec(alphas, beta);
 
+    loc_gamma_vec = V2DC_solve_gamma_eqn(A, RHS);
 
+    print(loc_gamma_vec);
 
 # Method that determines local induced velocity at collocation points (xi, zi) by panel between the jth and j+1th nodes
-def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta_j, pL_j):
+def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, beta_j, pL_j):
     # Note, Katz uses (x,z) for coordinates instead of (x,y), I use the same convention here. Note: jp1 = j+1.
     # First, derive translated coordinates of the ith collocation point
     x_i_prime = x_i - x_j;
@@ -41,7 +45,7 @@ def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta_j, pL_j):
     # Returns local induced velocity in coordinate form
     return u_i, w_i;
 
-# 
+# Make influence coefficient using collocation points, panel nodes, panel lengths, and tangential angles,
 def V2DC_influence_matrix(geom_pts, midpoints, beta, plengths):
     N = len(geom_pts);
 
@@ -50,26 +54,18 @@ def V2DC_influence_matrix(geom_pts, midpoints, beta, plengths):
     for i in range(N-1):
         x_i = midpoints[i,0];
         z_i = midpoints[i,1];
+
         for j in range(N):
             # Define jth x,z coordinates required to calculate (i,j)th influence coefficient
             x_j = geom_pts[j,0]
             z_j = geom_pts[j,1]
 
-            # If j = N-1, loop back to the first index;
-            if j+1 == N:
-               x_jp1 = geom_pts[0,0];
-               z_jp1 = geom_pts[0,1];
-            # Otherwise, continue down the array of points
-            else:
-               x_jp1 = geom_pts[j+1,0];
-               z_jp1 = geom_pts[j+1,1];
-            
             if i == j:
                # Using Katz eqn. 11.50
                A[i,j] = -0.5;
             else:
                # Calculate singularity vortex element influenced velocities
-               u, w = V2DC_induced_vel(1, x_i, z_i, x_j, z_j, x_jp1, z_jp1, beta[j], plengths[j]);
+               u, w = V2DC_induced_vel(1, x_i, z_i, x_j, z_j, beta[j], plengths[j]);
                # Using Katz eqn. 11.49
                A[i,j] = u * np.cos(beta[i]) - w * np.sin(beta[i]);  
     
@@ -98,26 +94,6 @@ def V2DC_RHS_vec(alpha, beta):
 
     return RHS;
 
-def get_midpoints(geom_pts):
-
-    # number of midpoints = number of panel nodes for a closed system of panels
-    N = len(geom_pts);
-    midpoints = np.zeros((N,2));
-    
-    # Use the face that the midpoint between two values is their sum divided by 2.
-    for i in range(N):
-        if i < (N-1):
-            x_m = 0.5 *(geom_pts[i,0] + geom_pts[i+1,0]);
-            z_m = 0.5 *(geom_pts[i,1] + geom_pts[i+1,1]);
-            midpoints[i,:] = [x_m, z_m];
-        # if i is on the N-1th index, we consider the 0 as the i+1 index to represent the first panel node
-        else:
-            x_m = 0.5 *(geom_pts[i,0] + geom_pts[0,0]);
-            z_m = 0.5 *(geom_pts[i,1] + geom_pts[0,1]);
-            midpoints[i,:] = [x_m, z_m];
-
-    return midpoints;
-
 # Using coordinate points, get the tangential angle and length of each panel.
 def get_geom_params(geom_points):
     N = len(geom_points);
@@ -125,6 +101,7 @@ def get_geom_params(geom_points):
     # For N panels, there are N angles
     beta = np.zeros(N);
     p_lengths = np.zeros(N);
+    midpoints = np.zeros((N,2));
 
     for k in range(N):
         # Get kth panel node coordinates.
@@ -149,7 +126,16 @@ def get_geom_params(geom_points):
         # Calculate length by distance formula.
         p_lengths[k] = np.sqrt((dz)**2 + (dx)**2);
     
-    return beta, p_lengths;
+        x_m = 0.5 *(x_k + x_kp1);
+        z_m = 0.5 *(z_k + z_kp1);
+        midpoints[k,:] = [x_m, z_m];
+    
+    return beta, p_lengths, midpoints;
 
-
-
+# From other methods compute the coefficient matrix A and the RHS boundary conditions vector.
+# Helper method; save local vortex strengths as an array for lift and moment calculations
+def V2DC_solve_gamma_eqn(A, RHS):
+    #Solve the linear system of equations for all gamma values for each panel. 
+    loc_gamma = np.linalg.solve(A, RHS);
+    print(loc_gamma);
+    return loc_gamma;
