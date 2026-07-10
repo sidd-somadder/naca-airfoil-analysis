@@ -15,12 +15,21 @@ import math;
 def run_vpm_solver(geom_points, alphas):
     beta, panel_lengths, midpoints = get_geom_params(geom_points);
 
+    # Each column (N) is a gamma distribution for a specific angle of attack
+    # Each row (M) is a set of gamma values for each geometric tangential panel angle 
+    N = len(alphas);
+    M = len(beta);
+    gamma_distribution = np.zeros((M,N));
+
     A = V2DC_influence_matrix(geom_points, midpoints, beta, panel_lengths);
-    RHS = V2DC_RHS_vec(alphas, beta);
+    for k in range(N):
+        # Define RHS vector for each alpha; has M elements
+        RHS = V2DC_RHS_vec(alphas[k], beta);
 
-    loc_gamma_vec = V2DC_solve_gamma_eqn(A, RHS);
+        # resulting local vortex strength vector has M elements for the kth alpha
+        gamma_distribution[:,k] = V2DC_solve_gamma_eqn(A, RHS);
 
-    print(loc_gamma_vec);
+    return gamma_distribution; # placeholder
 
 # Method that determines local induced velocity at collocation points (xi, zi) by panel between the jth and j+1th nodes
 def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, beta_j, pL_j):
@@ -48,7 +57,8 @@ def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, beta_j, pL_j):
 # Make influence coefficient using collocation points, panel nodes, panel lengths, and tangential angles,
 def V2DC_influence_matrix(geom_pts, midpoints, beta, plengths):
     N = len(geom_pts);
-
+    
+    # Initialize square matrix with N equations and N local gammas
     A = np.zeros((N,N));
 
     for i in range(N-1):
@@ -69,7 +79,7 @@ def V2DC_influence_matrix(geom_pts, midpoints, beta, plengths):
                # Using Katz eqn. 11.49
                A[i,j] = u * np.cos(beta[i]) - w * np.sin(beta[i]);  
     
-    # We replace the blunt TE panel influence equation with the Kutta Condiiton for the panels adjacent to TE points
+    # We replace the blunt TE panel influence equation with the Kutta Condition for the panels adjacent to TE points
     A[N-1,0] = 1;
     A[N-1,N-2] = 1;
 
@@ -133,7 +143,7 @@ def get_geom_params(geom_points):
     return beta, p_lengths, midpoints;
 
 # From other methods compute the coefficient matrix A and the RHS boundary conditions vector.
-# Helper method; save local vortex strengths as an array for lift and moment calculations
+# Looped for each RHS vector for each alpha; main method saves local vortex strengths as matrix for each angle of attack
 def V2DC_solve_gamma_eqn(A, RHS):
     #Solve the linear system of equations for all gamma values for each panel. 
     loc_gamma = np.linalg.solve(A, RHS);
