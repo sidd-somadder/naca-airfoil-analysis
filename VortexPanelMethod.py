@@ -3,33 +3,32 @@
 # Geometric surface points must be in the saved_airfoil_coords folder in order for successful execution
 # Constant Strength Vortex Method is used here; Future implementations will include a linear-strength vortex method for comparison
 
-import sys;
 import numpy as np;
 import matplotlib.pyplot as plt;
-import scipy.integrate as scpi;
 import pandas as pd;
 import os;
-import math;
 
 # Assume points are already processed into reverse Selig format
-def run_vpm_solver(geom_points, alphas):
+def run_vpm_solver(geom_points, alphas, input_file_name):
     beta, panel_lengths, midpoints = get_geom_params(geom_points);
+    alphas_rad = alphas * np.pi/180;
 
-    # Each column (N) is a gamma distribution for a specific angle of attack
-    # Each row (M) is a set of gamma values for each geometric tangential panel angle 
     N = len(alphas);
     M = len(beta);
     gamma_distribution = np.zeros((M,N));
 
     A = V2DC_influence_matrix(geom_points, midpoints, beta, panel_lengths);
     for k in range(N):
-        # Define RHS vector for each alpha; has M elements
-        RHS = V2DC_RHS_vec(alphas[k], beta);
-
-        # resulting local vortex strength vector has M elements for the kth alpha
+        RHS = V2DC_RHS_vec(alphas_rad[k], beta);
         gamma_distribution[:,k] = V2DC_solve_gamma_eqn(A, RHS);
 
-    return gamma_distribution; # placeholder
+    coeff_P_matrix = V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution);
+    export_pressure_results(coeff_P_matrix, midpoints, alphas, input_file_name);
+
+    print(gamma_distribution);
+    print(coeff_P_matrix);
+
+    #return gamma_distribution, coeff_P_matrix, midpoints;
 
 # Method that determines local induced velocity at collocation points (xi, zi) by panel between the jth and j+1th nodes
 def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, beta_j, pL_j):
@@ -147,5 +146,86 @@ def get_geom_params(geom_points):
 def V2DC_solve_gamma_eqn(A, RHS):
     #Solve the linear system of equations for all gamma values for each panel. 
     loc_gamma = np.linalg.solve(A, RHS);
-    print(loc_gamma);
     return loc_gamma;
+
+# Calculates coefficient of pressure for every panel, across every angle of attack, in one call.
+# alphas_rad: array of angles of attack, in radians (matches the rest of this script's unit convention)
+# beta: array of panel tangential angles (M,)
+# gamma_distribution: solved vortex strengths, shape (M, N) -- M panels, N angles of attack
+# Returns coeff_P: shape (M, N), same row/column convention as gamma_distribution
+def V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution):
+    # Broadcast beta (M,) against alphas_rad (N,) into an (M,N) matrix where
+    # entry [j,k] = beta_j + alpha_k -- the (alpha + alpha_j) term in Katz eqn. 11.53.
+    angle_matrix = beta[:, np.newaxis] + alphas_rad[np.newaxis, :];
+
+    coeff_P = 1 - (np.cos(angle_matrix) + 0.5 * gamma_distribution)**2;
+
+    return coeff_P;
+
+# Interactively plots Cp vs x/c for a user-selected angle of attack, looping until the user quits.
+# Takes inputs coeff_P_matrix (M X N), from V2DC_pressure_distribution
+# and angle-of-attack array in DEGREES (alphas)
+def plot_pressure(coeff_P_matrix, midpoints, alphas):
+    x_coords = midpoints[:, 0];
+    chord = np.max(x_coords) - np.min(x_coords);
+    norm_x = x_coords / chord;
+
+    print(f"Available angles of attack: {list(np.round(alphas, 2))}");
+
+    # Keep asking user for angle of attack for pressure coefficient plot, loop until user quets.
+    while True:
+        user_input = input("Enter an angle of attack to plot Cp for (or 'q' to quit): ").strip();
+        if user_input.lower() == 'q':
+            break;
+
+        # Check if user input is valid.
+        try:
+            requested_aoa = float(user_input);
+        except ValueError:
+            print("Invalid input -- please enter a numeric angle or 'q'.");
+            continue;
+
+        # Since user input likely doesn't match stored float, find nearest within small tolerance.
+        k = np.argmin(np.abs(alphas - requested_aoa));
+        matched_aoa = alphas[k];
+
+        # If no angle is found, plot for the next nearest angle.
+        if not np.isclose(matched_aoa, requested_aoa, atol=1e-6):
+            print(f"No exact match for {requested_aoa}°; showing closest available angle: {matched_aoa:.2f}°.");
+
+        fig, ax = plt.subplots(figsize=(9, 6));
+        ax.plot(norm_x, coeff_P_matrix[:, k], color='steelblue', linewidth=2, marker='o', markersize=3);
+        ax.axhline(0, color='black', linewidth=0.8, linestyle='--');
+        ax.invert_yaxis();
+        ax.set_xlabel(r'$x/c$');
+        ax.set_ylabel(r'$C_p$');
+        ax.set_title(rf'VPM — Pressure Distribution ($\alpha$ = {matched_aoa:.1f}°)');
+        ax.grid(True, linestyle=':', alpha=0.6);
+        plt.tight_layout();
+        plt.show();
+
+# Exports the full Cp matrix (all panels x all angles of attack) as a single .csv.
+def export_pressure_results(coeff_P_matrix, midpoints, alphas, input_file_name):
+    output_dir = os.path.join(os.path.dirname(__file__), "computation_results");
+    os.makedirs(output_dir, exist_ok=True);
+    
+    # Process file name and output path
+    identifier = input_file_name.replace(".dat", "");
+    output_path = os.path.join(output_dir, f"VPM_Cp_{identifier}_results.csv");
+
+    # normalize x-axis values from 0-1 to be exactly x/c
+    x_coords = midpoints[:, 0];
+    chord = np.max(x_coords) - np.min(x_coords);
+    norm_x = x_coords / chord;
+
+    # .csv formatting and column titling
+    column_names = [f"Cp_alpha_{a:.2f}" for a in alphas];
+    df = pd.DataFrame(coeff_P_matrix, columns=column_names);
+    df.insert(0, "x_over_c", norm_x);
+
+    df.to_csv(output_path, index=False, float_format="%.6f");
+    print(f"VPM pressure distribution results exported: {output_path}");
+
+
+
+    
