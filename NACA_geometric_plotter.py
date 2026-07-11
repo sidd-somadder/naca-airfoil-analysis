@@ -96,6 +96,12 @@ def naca4gen(NACA_dig, x_axis):
     X = np.concatenate([np.flip(x_upper[1:]), x_lower]);
     Y = np.concatenate([np.flip(y_upper[1:]), y_lower]);
 
+    # Reverse the fully assembled Selig-ordered array to get reverse Selig:
+    # TE -> lower surface -> LE -> upper surface -> TE (clockwise), matching the
+    # traversal direction established for the VPM sign convention.
+    X = np.flip(X);
+    Y = np.flip(Y);
+
     # Combine combined X,Y coordinate linspaces into 2N-1 x 2 matrix
     XY_coords = np.column_stack((X,Y));
     return XY_coords;
