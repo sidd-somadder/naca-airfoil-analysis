@@ -10,105 +10,112 @@ import os;
 
 # Assume points are already processed into reverse Selig format
 def run_vpm_solver(geom_points, alphas, input_file_name):
-    beta, panel_lengths, midpoints = get_geom_params(geom_points);
+    # Retrieve tangential angles (phi), panel lengths, and panel midpoints (collocation points)
+    phi, panel_lengths, midpoints = get_geom_params(geom_points);
+
+    # Define outwards normal angle from tangential angle
+    beta = phi + np.pi/2;
+
+    # Convert angle of attack to radians
     alphas_rad = alphas * np.pi/180;
 
     N = len(alphas);
-    M = len(beta);
+    M = len(phi);
     gamma_distribution = np.zeros((M,N));
 
-    A = V2DC_influence_matrix(geom_points, midpoints, beta, panel_lengths);
+    K,L = V2DC_influence_matrices(geom_points, midpoints, panel_lengths, phi);
     for k in range(N):
         RHS = V2DC_RHS_vec(alphas_rad[k], beta);
-        gamma_distribution[:,k] = V2DC_solve_gamma_eqn(A, RHS);
 
-    coeff_P_matrix = V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution);
+        # The kth column of gamma_distribution corresponds to the kth angle in alphas_rad
+        gamma_distribution[:,k] = V2DC_solve_gamma_eqn(K, RHS);
+
+    coeff_P_matrix = V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L);
     export_pressure_results(coeff_P_matrix, midpoints, alphas, input_file_name);
 
-    print(gamma_distribution);
-    print(coeff_P_matrix);
+    c_l = get_coeffs(gamma_distribution, panel_lengths);
+    print(c_l);
+    plot_coeffs(c_l, alphas);
 
-    #return gamma_distribution, coeff_P_matrix, midpoints;
+    plot_pressure(coeff_P_matrix, midpoints, alphas);
 
-# Method that determines local induced velocity at collocation points (xi, zi) by panel between the jth and j+1th nodes
-def V2DC_induced_vel(loc_gam, x_i, z_i, x_j, z_j, beta_j, pL_j):
-    # Note, Katz uses (x,z) for coordinates instead of (x,y), I use the same convention here. Note: jp1 = j+1.
-    # First, derive translated coordinates of the ith collocation point
-    x_i_prime = x_i - x_j;
-    z_i_prime = z_i - z_j;
-
-    # Using tangential angle beta of the j to j+1th panel, transform prime coordinates to panel coordinates (bar)
-    x_i_bar = x_i_prime * np.cos(beta_j) + z_i_prime * np.sin(beta_j);
-    z_i_bar = -x_i_prime * np.sin(beta_j) + z_i_prime * np.cos(beta_j);
-
-    # Local induced velocity (Katz eqn. 11.44 & 11.45)
-    # Note: x_jp1_bar = panel length (pL_j) 
-    ubar = loc_gam/(2*np.pi) * (np.arctan2(z_i_bar,(x_i_bar-pL_j)) - np.arctan2(z_i_bar,x_i_bar)) 
-    wbar = -loc_gam/(4*np.pi) * np.log(((x_i_bar)**2 + (z_i_bar)**2)/((x_i_bar - pL_j)**2 + (z_i_bar)**2))
-    
-    # Use tangential angle again to rotate velocity vector to cartesian coordinates from panel coordinates
-    u_i = ubar * np.cos(beta_j) - wbar * np.sin(beta_j);
-    w_i = ubar * np.sin(beta_j) + wbar * np.cos(beta_j);
-    
-    # Returns local induced velocity in coordinate form
-    return u_i, w_i;
+    #return gamma_distribution, coeff_P_matrix, midpoints, c_l;
 
 # Make influence coefficient using collocation points, panel nodes, panel lengths, and tangential angles,
-def V2DC_influence_matrix(geom_pts, midpoints, beta, plengths):
+def V2DC_influence_matrices(geom_pts, midpoints, plengths, phi):
     N = len(geom_pts);
     
     # Initialize square matrix with N equations and N local gammas
-    A = np.zeros((N,N));
+    # K is the normal influence matrix used for the boundary condition
+    K = np.zeros((N,N));
+    # L is the tangential influence matrix used to find the tangential velocity per panel
+    L = np.zeros((N,N));
 
-    for i in range(N-1):
-        x_i = midpoints[i,0];
-        z_i = midpoints[i,1];
-
+    for i in range(N):
         for j in range(N):
-            # Define jth x,z coordinates required to calculate (i,j)th influence coefficient
-            x_j = geom_pts[j,0]
-            z_j = geom_pts[j,1]
+            # Retrieve ith collocation point coordinates
+            x_i = midpoints[i, 0];
+            z_i = midpoints[i, 1];
 
-            if i == j:
-               # Using Katz eqn. 11.50
-               A[i,j] = -0.5;
-            else:
-               # Calculate singularity vortex element influenced velocities
-               u, w = V2DC_induced_vel(1, x_i, z_i, x_j, z_j, beta[j], plengths[j]);
-               # Using Katz eqn. 11.49
-               A[i,j] = u * np.cos(beta[i]) - w * np.sin(beta[i]);  
+            # Retrieve jth collocation point coordinates
+            x_j = geom_pts[j,0];
+            z_j = geom_pts[j,1];
+
+            # Intermediate geometric integration terms 
+            A = -(x_i - x_j)*np.cos(phi[j]) - (z_i - z_j)*np.sin(phi[j]);
+            B = (x_i - x_j)**2 + (z_i - z_j)**2;
+            C_k = - np.cos(phi[i] - phi[j]);
+            C_l = np.sin(phi[j] - phi[i]);
+            D_k = (x_i - x_j)*np.cos(phi[i]) + (z_i - z_j)*np.sin(phi[i]);
+            D_l = (x_i - x_j)*np.sin(phi[i]) - (z_i - z_j)*np.cos(phi[i]);
+            E = 0;
+            if B > A**2:
+                E = np.sqrt(B - A**2);
+            
+            # Retrieve jth panel length
+            s_j = plengths[j];
+
+            # Compute the logarithm and arctan terms for each resulting matrix entry 
+            log_term = np.log((s_j**2 + 2*A*s_j + B)/B)
+            atan_term = np.arctan2((s_j + A), E) - np.arctan2(A, E)
+            
+            # Diagonal terms = 0
+            if not (i == j):
+                K[i,j] = (C_k/2) * log_term;
+                K[i,j] += ((D_k - A*C_k)/E)*atan_term;
     
+                L[i,j] = (C_l/2) * log_term
+                L[i,j] += ((D_l - A*C_l)/E)*atan_term;
+
     # We replace the blunt TE panel influence equation with the Kutta Condition for the panels adjacent to TE points
-    A[N-1,0] = 1;
-    A[N-1,N-2] = 1;
+    K[N-1,:] = 0;
+    K[N-1,0] = 1;
+    K[N-1,N-2] = 1;
 
-    return A;
+    return K, L;
 
-# Returns the RHS for the Ag = RHS matrix equation
+# Returns the RHS for the Kg = RHS matrix equation
 # Takes the set of angle of attacks (alpha) and all local panel tangential angles (beta);
 def V2DC_RHS_vec(alpha, beta):
-    # Define Cartesian components of freestream velocity.
-    # Since this solver returns coefficients instead of raw lift values, assume V = 1 
-    U = np.cos(alpha);
-    W = np.sin(alpha);
 
-    # If there are N tangential angles, then there are N panels, and therefore the RHS has N elements
+    # If there are N outward normal angles, then there are N panels, and therefore the RHS has N elements
     RHS = np.zeros_like(beta);
 
-    # (RHS)_i = - (U,W) dot (cos(beta[i] - sin(beta[i]))); Katz eqn. 11.51
-    RHS = - U * np.cos(beta) + W * np.sin(beta);
+    # (RHS)_i = 2pi * V_inf * cos(beta - alpha)
+    RHS = np.cos(beta - alpha)
 
     # To include the Kutta Condition for the Nth equation, we set RHS = 0 
     RHS[-1] = 0.0;
 
-    return RHS;
+    # Factor in 2pi to simplify matrix equation
+    return 2 * np.pi * RHS;
 
 # Using coordinate points, get the tangential angle and length of each panel.
 def get_geom_params(geom_points):
     N = len(geom_points);
 
     # For N panels, there are N angles
-    beta = np.zeros(N);
+    phi = np.zeros(N);
     p_lengths = np.zeros(N);
     midpoints = np.zeros((N,2));
 
@@ -130,7 +137,7 @@ def get_geom_params(geom_points):
         dz = z_kp1 - z_k;
 
         # Compute tangential angle using arctan.
-        beta[k] = np.arctan2(dz,dx);
+        phi[k] = np.arctan2(dz,dx);
 
         # Calculate length by distance formula.
         p_lengths[k] = np.sqrt((dz)**2 + (dx)**2);
@@ -139,28 +146,34 @@ def get_geom_params(geom_points):
         z_m = 0.5 *(z_k + z_kp1);
         midpoints[k,:] = [x_m, z_m];
     
-    return beta, p_lengths, midpoints;
+    return phi, p_lengths, midpoints;
 
 # From other methods compute the coefficient matrix A and the RHS boundary conditions vector.
 # Looped for each RHS vector for each alpha; main method saves local vortex strengths as matrix for each angle of attack
-def V2DC_solve_gamma_eqn(A, RHS):
+def V2DC_solve_gamma_eqn(K, RHS):
     #Solve the linear system of equations for all gamma values for each panel. 
-    loc_gamma = np.linalg.solve(A, RHS);
+    loc_gamma = np.linalg.solve(K, RHS);
     return loc_gamma;
 
-# Calculates coefficient of pressure for every panel, across every angle of attack, in one call.
-# alphas_rad: array of angles of attack, in radians (matches the rest of this script's unit convention)
-# beta: array of panel tangential angles (M,)
-# gamma_distribution: solved vortex strengths, shape (M, N) -- M panels, N angles of attack
-# Returns coeff_P: shape (M, N), same row/column convention as gamma_distribution
-def V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution):
-    # Broadcast beta (M,) against alphas_rad (N,) into an (M,N) matrix where
-    # entry [j,k] = beta_j + alpha_k -- the (alpha + alpha_j) term in Katz eqn. 11.53.
-    angle_matrix = beta[:, np.newaxis] + alphas_rad[np.newaxis, :];
+def V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L_matrix): 
 
-    coeff_P = 1 - (np.cos(angle_matrix) + 0.5 * gamma_distribution)**2;
+    # initialize coefficient of pressure matrix using solved gammas matrix
+    M, N = gamma_distribution.shape;
 
-    return coeff_P;
+    V_tang = np.zeros((M,N));
+
+    # for each outwards normal angle in range
+    for i in range(M):
+        # for each angle of attack in range
+        for k in range(N):
+            sum_influence = 0;
+            for j in range(M):
+                # for the gammas corresponding to the kth angle of attack
+                sum_influence += gamma_distribution[j,k]/(2*np.pi) * L_matrix[i,j];
+            V_tang[i,k] = np.sin(beta[i] - alphas_rad[k]) - sum_influence;
+
+    coeff_p = 1 - V_tang**2
+    return coeff_p;
 
 # Interactively plots Cp vs x/c for a user-selected angle of attack, looping until the user quits.
 # Takes inputs coeff_P_matrix (M X N), from V2DC_pressure_distribution
@@ -170,36 +183,47 @@ def plot_pressure(coeff_P_matrix, midpoints, alphas):
     chord = np.max(x_coords) - np.min(x_coords);
     norm_x = x_coords / chord;
 
-    print(f"Available angles of attack: {list(np.round(alphas, 2))}");
+    # Reverse Selig order is TE -> lower -> LE -> upper -> TE, one continuous loop.
+    # The leading edge is the point of minimum x/c; split the array there to color
+    # the two surfaces independently.
+    le_idx = np.argmin(norm_x);
 
-    # Keep asking user for angle of attack for pressure coefficient plot, loop until user quets.
+    print(f"Available angles of attack: {alphas}");
+
     while True:
         user_input = input("Enter an angle of attack to plot Cp for (or 'q' to quit): ").strip();
         if user_input.lower() == 'q':
             break;
 
-        # Check if user input is valid.
         try:
             requested_aoa = float(user_input);
         except ValueError:
             print("Invalid input -- please enter a numeric angle or 'q'.");
             continue;
 
-        # Since user input likely doesn't match stored float, find nearest within small tolerance.
         k = np.argmin(np.abs(alphas - requested_aoa));
         matched_aoa = alphas[k];
 
-        # If no angle is found, plot for the next nearest angle.
         if not np.isclose(matched_aoa, requested_aoa, atol=1e-6):
             print(f"No exact match for {requested_aoa}°; showing closest available angle: {matched_aoa:.2f}°.");
 
         fig, ax = plt.subplots(figsize=(9, 6));
-        ax.plot(norm_x, coeff_P_matrix[:, k], color='steelblue', linewidth=2, marker='o', markersize=3);
+
+        # Lower surface: index 0 through le_idx (inclusive, so the two segments share
+        # the LE point and the line doesn't visibly break there).
+        ax.plot(norm_x[:le_idx+1], coeff_P_matrix[:le_idx+1, k],
+                color='blue', linewidth=2, marker='o', markersize=3, label='Lower surface');
+
+        # Upper surface: le_idx through the end.
+        ax.plot(norm_x[le_idx:], coeff_P_matrix[le_idx:, k],
+                color='red', linewidth=2, marker='o', markersize=3, label='Upper surface');
+
         ax.axhline(0, color='black', linewidth=0.8, linestyle='--');
         ax.invert_yaxis();
         ax.set_xlabel(r'$x/c$');
         ax.set_ylabel(r'$C_p$');
         ax.set_title(rf'VPM — Pressure Distribution ($\alpha$ = {matched_aoa:.1f}°)');
+        ax.legend();
         ax.grid(True, linestyle=':', alpha=0.6);
         plt.tight_layout();
         plt.show();
@@ -226,6 +250,22 @@ def export_pressure_results(coeff_P_matrix, midpoints, alphas, input_file_name):
     df.to_csv(output_path, index=False, float_format="%.6f");
     print(f"VPM pressure distribution results exported: {output_path}");
 
-
-
+def get_coeffs(gamma_distribution, p_lengths):
+    M, N = gamma_distribution.shape;
     
+    c_l = np.zeros(N);
+
+    for alpha in range(N):
+        for k in range(M):
+            c_l[alpha] += 2*gamma_distribution[k, alpha] * p_lengths[k];
+
+    return c_l;
+
+def plot_coeffs(c_l, a):
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.plot(a, c_l,   label=r'$C_L$',       color='steelblue', linewidth=2)
+    ax.axhline(0, color='black', linewidth=0.8, linestyle='--')
+    ax.axvline(0, color='black', linewidth=0.8, linestyle='--')
+    ax.set_xlabel(r'$\alpha$ (°)'); ax.set_ylabel('c_l')
+    ax.set_title('VPM — Quick Check'); ax.legend(); ax.grid(True, linestyle=':', alpha=0.6)
+    plt.tight_layout(); plt.show()
