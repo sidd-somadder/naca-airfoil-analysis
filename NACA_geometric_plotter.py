@@ -39,6 +39,11 @@ def naca_plot(NACA_dig, XY_coords):
     x_plot = XY_coords[:, 0]
     y_plot = XY_coords[:, 1]
 
+    code = "";
+    if NACA_dig // 100 == 0:
+        code = "00"
+    code+= str(NACA_dig);
+
     # Plot airfoil geometry:
     plt.figure(figsize=(10, 4))
 
@@ -50,7 +55,7 @@ def naca_plot(NACA_dig, XY_coords):
     plt.axis('equal') 
     plt.xlabel('x/c')
     plt.ylabel('y/c')
-    plt.title(f'NACA {NACA_dig} Airfoil Geometry')
+    plt.title(f'NACA {code} Airfoil Geometry')
     plt.grid(True)
     plt.tight_layout()
     plt.show()
@@ -74,9 +79,20 @@ def naca4gen(NACA_dig, x_axis):
     print(f"Max Camber Position % : {p}");
     print(f"Max Thickness % : {t}");
 
-    # Define mean camberline & slope using known equations for NACA 4-digit series airfoils
-    y_mc = np.where((0 <= x_axis) & (x_axis < p), m/(p**2) * (2*p*x_axis - x_axis**2), m/((1-p)**2) * ((1-2*p) + 2*p*x_axis - x_axis**2));
-    dy_mc = np.where((0 <= x_axis) & (x_axis < p), 2*m/(p**2) * (p - x_axis), 2*m/((1-p)**2) * (p - x_axis));
+    # Handle symmetric vs asymmetric camber line calculations explicitly
+    if m == 0 or p == 0:
+        # Symmetric case: no camber line or slope variations
+        y_mc = np.zeros_like(x_axis);
+        dy_mc = np.zeros_like(x_axis);
+    else:
+        # Asymmetric case: define mean camberline & slope using standard equations
+        y_mc = np.where((0 <= x_axis) & (x_axis < p), 
+                        m/(p**2) * (2*p*x_axis - x_axis**2), 
+                        m/((1-p)**2) * ((1-2*p) + 2*p*x_axis - x_axis**2));
+        
+        dy_mc = np.where((0 <= x_axis) & (x_axis < p), 
+                         2*m/(p**2) * (p - x_axis), 
+                         2*m/((1-p)**2) * (p - x_axis));
 
     # Calculate thickness distribution of NACA airfoil using known equation
     y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1015*(x_axis**4));
@@ -95,6 +111,10 @@ def naca4gen(NACA_dig, x_axis):
     # Clip the first index of each upper coordinates arrays to prevent doubling the LE point before flipping.
     X = np.concatenate([np.flip(x_upper[1:]), x_lower]);
     Y = np.concatenate([np.flip(y_upper[1:]), y_lower]);
+
+    # Normalize X to be 0 to 1
+    chord = np.max(X) - np.min(X);
+    X = X/chord;
 
     # Reverse the fully assembled Selig-ordered array to get reverse Selig:
     # TE -> lower surface -> LE -> upper surface -> TE (clockwise), matching the
@@ -116,13 +136,19 @@ def save_coords_decision(NACA_dig, XY_coords):
         
             if choice == 'Y':
                 # Build filename and path. Example format: "NACA_4412_N100.dat" would be written to saved_airfoils_coords
+                
+                code = "";
+                if NACA_dig // 100 == 0:
+                    code = "00"
+                code+= str(NACA_dig);
+                
                 N = int(0.5*(len(XY_coords) + 1))
-                filename = f"NACA_{NACA_dig}_N{N}.dat"
+                filename = f"NACA_{code}_N{N}.dat"
                 filepath = Path("saved_airfoil_coords") / filename
 
                 with open(filepath, 'w') as f:
                     # Header line: airfoil designation (standard Selig format)
-                    f.write(f"NACA {NACA_dig}\n")
+                    f.write(f"NACA {code}\n")
         
                     # Write x y coordinates, space-separated, 6 decimal places
                     for row in XY_coords:
