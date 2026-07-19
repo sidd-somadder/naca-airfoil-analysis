@@ -33,9 +33,10 @@ def run_vpm_solver(geom_points, alphas, input_file_name):
     coeff_P_matrix = V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L);
     export_pressure_results(coeff_P_matrix, midpoints, alphas, input_file_name);
 
-    c_l = get_coeffs(gamma_distribution, panel_lengths);
+    c_l_KJ, c_l = get_coeffs(gamma_distribution, panel_lengths, coeff_P_matrix, beta, alphas_rad);
+    print(c_l_KJ);
     print(c_l);
-    plot_coeffs(c_l, alphas);
+    plot_coeffs(c_l_KJ, c_l, alphas);
 
     plot_pressure(coeff_P_matrix, midpoints, alphas);
 
@@ -82,15 +83,21 @@ def V2DC_influence_matrices(geom_pts, midpoints, plengths, phi):
             # Diagonal terms = 0
             if not (i == j):
                 K[i,j] = (C_k/2) * log_term;
-                K[i,j] += ((D_k - A*C_k)/E)*atan_term;
-    
                 L[i,j] = (C_l/2) * log_term
-                L[i,j] += ((D_l - A*C_l)/E)*atan_term;
+                if E != 0:
+                    K[i,j] += ((D_k - A*C_k)/E)*atan_term;
+                    L[i,j] += ((D_l - A*C_l)/E)*atan_term;
 
+            # Zero out any remaining problem values
+            if (np.iscomplex(K[i,j]) or np.isnan(K[i,j]) or np.isinf(K[i,j])):      # If K term is complex or a NAN or an INF
+                K[i,j] = 0                                                          # Set K value equal to zero
+            if (np.iscomplex(L[i,j]) or np.isnan(L[i,j]) or np.isinf(L[i,j])):      # If L term is complex or a NAN or an INF
+                L[i,j] = 0                                                          # Set L value equal to zero
+    
     # We replace the blunt TE panel influence equation with the Kutta Condition for the panels adjacent to TE points
-    K[N-1,:] = 0;
-    K[N-1,0] = 1;
-    K[N-1,N-2] = 1;
+    K[-1,:] = 0;
+    K[-1,0] = 1;
+    K[-1,N-2] = 1;
 
     return K, L;
 
@@ -155,38 +162,39 @@ def V2DC_solve_gamma_eqn(K, RHS):
     loc_gamma = np.linalg.solve(K, RHS);
     return loc_gamma;
 
+def invalid_panel_indices(M):
+    return [0, M-2, M-1];
+
 def V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L_matrix): 
 
     # initialize coefficient of pressure matrix using solved gammas matrix
+    
     M, N = gamma_distribution.shape;
 
     V_tang = np.zeros((M,N));
 
     # for each outwards normal angle in range
-    for i in range(M):
+    for i in range(M-1):
         # for each angle of attack in range
         for k in range(N):
             sum_influence = 0;
             for j in range(M):
-                # for the gammas corresponding to the kth angle of attack
-                sum_influence += gamma_distribution[j,k]/(2*np.pi) * L_matrix[i,j];
-            V_tang[i,k] = np.sin(beta[i] - alphas_rad[k]) - sum_influence;
+                sum_influence -= gamma_distribution[j, k]/(2*np.pi) * L_matrix[i, j]
+            
+            V_tang[i, k] = np.sin(beta[i] - alphas_rad[k]) + sum_influence + gamma_distribution[i,k]/2
 
     coeff_p = 1 - V_tang**2
+    
+    # Mask rather than delete, so every downstream array stays length M.
+    coeff_p[invalid_panel_indices(M), :] = np.nan;
     return coeff_p;
 
-# Interactively plots Cp vs x/c for a user-selected angle of attack, looping until the user quits.
-# Takes inputs coeff_P_matrix (M X N), from V2DC_pressure_distribution
-# and angle-of-attack array in DEGREES (alphas)
 def plot_pressure(coeff_P_matrix, midpoints, alphas):
     x_coords = midpoints[:, 0];
-    chord = np.max(x_coords) - np.min(x_coords);
-    norm_x = x_coords / chord;
 
-    # Reverse Selig order is TE -> lower -> LE -> upper -> TE, one continuous loop.
-    # The leading edge is the point of minimum x/c; split the array there to color
-    # the two surfaces independently.
-    le_idx = np.argmin(norm_x);
+    # Reverse Selig order is TE -> lower -> LE -> upper -> TE.
+    # Split at the leading edge (minimum x/c) to colour the surfaces separately.
+    le_idx = np.argmin(x_coords);
 
     print(f"Available angles of attack: {alphas}");
 
@@ -207,19 +215,21 @@ def plot_pressure(coeff_P_matrix, midpoints, alphas):
         if not np.isclose(matched_aoa, requested_aoa, atol=1e-6):
             print(f"No exact match for {requested_aoa}°; showing closest available angle: {matched_aoa:.2f}°.");
 
+        cp = coeff_P_matrix[:, k];
+
         fig, ax = plt.subplots(figsize=(9, 6));
 
-        # Lower surface: index 0 through le_idx (inclusive, so the two segments share
-        # the LE point and the line doesn't visibly break there).
-        ax.plot(norm_x[:le_idx+1], coeff_P_matrix[:le_idx+1, k],
+        ax.plot(x_coords[:le_idx+1], cp[:le_idx+1],
                 color='blue', linewidth=2, marker='o', markersize=3, label='Lower surface');
-
-        # Upper surface: le_idx through the end.
-        ax.plot(norm_x[le_idx:], coeff_P_matrix[le_idx:, k],
+        ax.plot(x_coords[le_idx:], cp[le_idx:],
                 color='red', linewidth=2, marker='o', markersize=3, label='Upper surface');
 
+        # Set limits from the finite data only, so a stray value can never rescale the axes.
+        lo, hi = np.nanmin(cp), np.nanmax(cp);
+        pad = 0.1 * (hi - lo);
+        ax.set_ylim(hi + pad, lo - pad);          # already inverted, so no invert_yaxis()
+
         ax.axhline(0, color='black', linewidth=0.8, linestyle='--');
-        ax.invert_yaxis();
         ax.set_xlabel(r'$x/c$');
         ax.set_ylabel(r'$C_p$');
         ax.set_title(rf'VPM — Pressure Distribution ($\alpha$ = {matched_aoa:.1f}°)');
@@ -228,44 +238,59 @@ def plot_pressure(coeff_P_matrix, midpoints, alphas):
         plt.tight_layout();
         plt.show();
 
-# Exports the full Cp matrix (all panels x all angles of attack) as a single .csv.
 def export_pressure_results(coeff_P_matrix, midpoints, alphas, input_file_name):
     output_dir = os.path.join(os.path.dirname(__file__), "computation_results");
     os.makedirs(output_dir, exist_ok=True);
-    
-    # Process file name and output path
-    identifier = input_file_name.replace(".dat", "");
+
+    identifier  = input_file_name.replace(".dat", "");
     output_path = os.path.join(output_dir, f"VPM_Cp_{identifier}_results.csv");
 
-    # normalize x-axis values from 0-1 to be exactly x/c
     x_coords = midpoints[:, 0];
-    chord = np.max(x_coords) - np.min(x_coords);
-    norm_x = x_coords / chord;
+    chord    = np.max(x_coords) - np.min(x_coords);
+    norm_x   = x_coords / chord;
 
-    # .csv formatting and column titling
     column_names = [f"Cp_alpha_{a:.2f}" for a in alphas];
     df = pd.DataFrame(coeff_P_matrix, columns=column_names);
     df.insert(0, "x_over_c", norm_x);
 
+    # Masked panels export as empty cells; drop them so the CSV has no gaps.
+    df = df.dropna();
+
     df.to_csv(output_path, index=False, float_format="%.6f");
     print(f"VPM pressure distribution results exported: {output_path}");
 
-def get_coeffs(gamma_distribution, p_lengths):
+def get_coeffs(gamma_distribution, p_lengths, coeff_p, beta, alphas_rad):
     M, N = gamma_distribution.shape;
     
+    c_l_KJ = np.zeros(N);
     c_l = np.zeros(N);
 
-    for alpha in range(N):
-        for k in range(M):
-            c_l[alpha] += 2*gamma_distribution[k, alpha] * p_lengths[k];
+    cp_mask = np.ones(M, dtype=bool);
+    cp_mask[[0, M-2, M-1]] = False;
 
-    return c_l;
+    for k in range(N):
+        # Circulation-based lift: every panel except the spurious closing one
+        # carries real circulation, even the two Kutta-adjacent ones.
+        c_l_KJ[k] = 2 * np.sum(gamma_distribution[:-1, k] * p_lengths[:-1]);
 
-def plot_coeffs(c_l, a):
+        # Pressure-based lift: only panels with a physically meaningful Cp.
+        cp = coeff_p[cp_mask, k];
+        s  = p_lengths[cp_mask];
+        b  = beta[cp_mask];
+
+        c_n = -(cp * s * np.sin(b)).sum();
+        c_a = -(cp * s * np.cos(b)).sum();
+
+        c_l[k] = c_n * np.cos(alphas_rad[k]) - c_a * np.sin(alphas_rad[k]);
+
+    return c_l_KJ, c_l;
+
+def plot_coeffs(c_l_KJ, c_l, a):
     fig, ax = plt.subplots(figsize=(9, 6))
-    ax.plot(a, c_l,   label=r'$C_L$',       color='steelblue', linewidth=2)
+    ax.plot(a, c_l_KJ,   label=r'$C_L (KJ)$',       color='steelblue', linewidth=2)
+    ax.plot(a, c_l,   label=r'$C_L (P)$',       color='firebrick', linewidth=2)
     ax.axhline(0, color='black', linewidth=0.8, linestyle='--')
     ax.axvline(0, color='black', linewidth=0.8, linestyle='--')
     ax.set_xlabel(r'$\alpha$ (°)'); ax.set_ylabel('c_l')
-    ax.set_title('VPM — Quick Check'); ax.legend(); ax.grid(True, linestyle=':', alpha=0.6)
+    ax.set_title('Constant Strength VPM: Kutta Joukowski vs. Pressure Coefficient derived C_l'); ax.legend(); ax.grid(True, linestyle=':', alpha=0.6)
     plt.tight_layout(); plt.show()
