@@ -7,6 +7,7 @@ from ThinAirfoilTheory import run_tat_solver
 from VortexPanelMethod import run_vpm_solver
 from xfoil_wrapper import run_xfoil_solver
 import numpy as np;
+import os;
 
 def get_file_name():
     print();
@@ -34,7 +35,11 @@ def get_angle_params():
     print("  0.25 → four points per degree    (fine)")
 
     # Resolution of angular range expressed as step size
-    step = float(input("  Step size in degrees (e.g. 1, 0.5, 0.25): "))
+    try:
+        step = float(input("  Step size in degrees (e.g. 1, 0.5, 0.25): "))
+    except ValueError:
+        print("Invalid input. Using default 1 degree step size.")
+        step = 1.0;
 
     # Inform user of their desired range. Confirm with user. 
     while True:
@@ -49,17 +54,45 @@ def get_angle_params():
             return get_angle_params();     
         else:
             print("Invalid choice. Please enter Y or N.");
-    
+
+# Reads a raw .dat coordinate file from the saved_airfoil_coords folder and returns an Nx2 numpy array of (x, y) points
+# This is a raw parse only, assume already in Selig format.
+def load_dat_coordinates(filename):
+    input_dir = os.path.join(os.path.dirname(__file__), "saved_airfoil_coords");
+    filepath = os.path.join(input_dir, filename);
+
+    raw_points = [];
+
+    with open(filepath, "r") as f:
+        for line in f:
+            tokens = line.split();
+            # Skip blank lines or anything that isn't exactly an (x, y) pair
+            if len(tokens) != 2:
+                continue;
+            try:
+                x_val = float(tokens[0]);
+                y_val = float(tokens[1]);
+            except ValueError:
+                # Catches the airfoil-name header line most .dat files start with
+                continue;
+            raw_points.append((x_val, y_val));
+
+    coords = np.array(raw_points);
+
+    return coords;
+
+sample_file_name1 = "NACA_2412_N200.dat";
+
 angle_param = get_angle_params();
+geom_points = load_dat_coordinates(sample_file_name1);
+run_vpm_solver(geom_points, angle_param, sample_file_name1);
 
 # Temporary sample file names to test cross-script function calls
-sample_file_name1 = "NACA_2412_N100.dat";
-sample_file_name2 = "Clarky_N60.dat";
 
 # Should print that input is a NACA airfoil
-print(f"Using sample {sample_file_name1} : ")
+#print(f"Using sample {sample_file_name1} : ")
 run_tat_solver(sample_file_name1, angle_param);
-print("---");
+#print("---");
 
 # # Should print that input is not a NACA airfoil
 # print(f"Using sample {sample_file_name2} : ")

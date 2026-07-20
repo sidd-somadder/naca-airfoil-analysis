@@ -152,7 +152,7 @@ def save_coords_decision(NACA_dig, XY_coords):
         
                     # Write x y coordinates, space-separated, 6 decimal places
                     for row in XY_coords:
-                        f.write(f"  {row[0]:.6f}  {row[1]:.6f}\n")
+                        f.write(f"  {row[0]:.12e}  {row[1]:.12e}\n")
 
                 print(f"Coordinates saved to: {filepath}")
                 break
