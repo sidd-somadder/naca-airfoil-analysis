@@ -6,8 +6,8 @@
 from thin_airfoil_theory import run_tat_solver
 from constant_vpm import run_cvpm_solver
 from xfoil_wrapper import run_xfoil_solver
+from panel_geometry import load_dat_coordinates
 import numpy as np;
-import os;
 
 def get_file_name():
     print();
@@ -55,33 +55,7 @@ def get_angle_params():
         else:
             print("Invalid choice. Please enter Y or N.");
 
-# Reads a raw .dat coordinate file from the saved_airfoil_coords folder and returns an Nx2 numpy array of (x, y) points
-# This is a raw parse only, assume already in Selig format.
-def load_dat_coordinates(filename):
-    input_dir = os.path.join(os.path.dirname(__file__), "saved_airfoil_coords");
-    filepath = os.path.join(input_dir, filename);
-
-    raw_points = [];
-
-    with open(filepath, "r") as f:
-        for line in f:
-            tokens = line.split();
-            # Skip blank lines or anything that isn't exactly an (x, y) pair
-            if len(tokens) != 2:
-                continue;
-            try:
-                x_val = float(tokens[0]);
-                y_val = float(tokens[1]);
-            except ValueError:
-                # Catches the airfoil-name header line most .dat files start with
-                continue;
-            raw_points.append((x_val, y_val));
-
-    coords = np.array(raw_points);
-
-    return coords;
-
-sample_file_name1 = "NACA_2412_N200.dat";
+sample_file_name1 = "NACA_0012_N100_CTE.dat";
 
 angle_param = get_angle_params();
 geom_points = load_dat_coordinates(sample_file_name1);

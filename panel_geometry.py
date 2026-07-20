@@ -5,18 +5,28 @@
 # panel midpoints
 
 import numpy as np;
+import os;
 
 # Using coordinate points, get the tangential angle and length of each panel.
-def get_geom_params(geom_points):
+def get_geom_params(geom_points, closed_te=False):
     N = len(geom_points);
 
-    # For N panels, there are N angles
+    # For closed TE, the last node duplicates the first, so drop it from the panel count. 
+    # The loop then runs k = 0 .. N-1 and the k+1 == N wraparound lands
+    # on geom_points[0], which is the same as the dropped node.
+    if closed_te:
+        N -= 1;
+
+    # For N panels, there are N angles.
+    # Note, for closed TE, All panel counts are one less than open TE.
     phi = np.zeros(N);
     p_lengths = np.zeros(N);
     midpoints = np.zeros((N,2));
 
     for k in range(N):
         # Get kth panel node coordinates.
+        # If TE is closed, then k ends on the actual N-2th index, 
+        # meaning the last panel uses the the N-2th and N-1th index 
         x_k = geom_points[k,0];
         z_k = geom_points[k,1];
 
@@ -35,9 +45,6 @@ def get_geom_params(geom_points):
         # Compute tangential angle using arctan.
         phi[k] = np.arctan2(dz,dx);
 
-        # Define outwards normal angle from tangential angle
-        beta = phi + np.pi/2;
-
         # Calculate length by distance formula.
         p_lengths[k] = np.sqrt((dz)**2 + (dx)**2);
     
@@ -45,11 +52,14 @@ def get_geom_params(geom_points):
         z_m = 0.5 *(z_k + z_kp1);
         midpoints[k,:] = [x_m, z_m];
     
+    # Define outwards normal angle from tangential angle
+    beta = phi + np.pi/2;
+
     return phi, beta, p_lengths, midpoints;
 
 # Make influence coefficient using collocation points, panel nodes, panel lengths, and tangential angles,
 def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
-    N = len(geom_pts);
+    N = len(phi);
     
     # Initialize square matrix with N equations and N local gammas
     # K is the normal influence matrix used for the boundary condition
@@ -99,3 +109,42 @@ def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
             if (np.iscomplex(L[i,j]) or np.isnan(L[i,j]) or np.isinf(L[i,j])):      # If L term is complex or a NAN or an INF
                 L[i,j] = 0                                                          # Set L value equal to zero
     return K, L;
+
+# Reads provided file name and returns if the TE is closed (True) or if it is open (False)
+def isClosedTE_file(filename):
+    tokens = os.path.splitext(os.path.basename(filename))[0].upper().split("_");
+    if "CTE" in tokens:
+        closed_te = True;
+    elif "OTE" in tokens:
+        closed_te = False;
+    else:
+        raise ValueError(f"Filename '{filename}' has no CTE/OTE tag -- "
+                         f"regenerate it, or the TE format is ambiguous.");
+
+    return closed_te;
+
+# Reads a raw .dat coordinate file from the saved_airfoil_coords folder and returns an Nx2 numpy array of (x, y) points
+# This is a raw parse only, assume already in Selig format.
+def load_dat_coordinates(filename):
+    input_dir = os.path.join(os.path.dirname(__file__), "saved_airfoil_coords");
+    filepath = os.path.join(input_dir, filename);
+
+    raw_points = [];
+
+    with open(filepath, "r") as f:
+        for line in f:
+            tokens = line.split();
+            # Skip blank lines or anything that isn't exactly an (x, y) pair
+            if len(tokens) != 2:
+                continue;
+            try:
+                x_val = float(tokens[0]);
+                y_val = float(tokens[1]);
+            except ValueError:
+                # Catches the airfoil-name header line most .dat files start with
+                continue;
+            raw_points.append((x_val, y_val));
+
+    coords = np.array(raw_points);
+
+    return coords;
