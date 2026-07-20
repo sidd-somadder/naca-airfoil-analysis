@@ -9,7 +9,7 @@ import pandas as pd;
 import os;
 
 # Assume points are already processed into reverse Selig format
-def run_vpm_solver(geom_points, alphas, input_file_name):
+def run_cvpm_solver(geom_points, alphas, input_file_name):
     # Retrieve tangential angles (phi), panel lengths, and panel midpoints (collocation points)
     phi, panel_lengths, midpoints = get_geom_params(geom_points);
 
