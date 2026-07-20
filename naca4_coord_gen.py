@@ -20,9 +20,11 @@ def naca_gen_script():
     x_axis = 0.5 * (1 - np.cos(beta));
     print("---");
 
+    closed_te = isClosedTE();
+
     # At this point, assume that incorrect inputs have been filtered out by earlier input verification code block
     # Call function to get coordinate point matrix
-    XY_coords = naca4gen(NACA_dig, x_axis);    
+    XY_coords = naca4gen(NACA_dig, x_axis, closed_te);    
 
     print("---");
 
@@ -30,7 +32,7 @@ def naca_gen_script():
     naca_plot(NACA_dig, XY_coords);
 
     # Ask user if they want to save airfoil coordinates as .dat file
-    save_coords_decision(NACA_dig, XY_coords);
+    save_coords_decision(NACA_dig, XY_coords, closed_te);
 
 # Plotter helper method called automatically in main script. 
 def naca_plot(NACA_dig, XY_coords):
@@ -62,7 +64,7 @@ def naca_plot(NACA_dig, XY_coords):
     print("---");
 
 # Method that generates upper and lower coordinates using mean camberline and thickness distribution equations
-def naca4gen(NACA_dig, x_axis):
+def naca4gen(NACA_dig, x_axis, closed_te=False):
     # For 4-digit airfoils, compute max camber (m), p (max camber location), and t (thickness) values in percentage chord
     m_dig = NACA_dig // 1000;
     p_dig = ((NACA_dig % 1000) // 100); 
@@ -122,11 +124,16 @@ def naca4gen(NACA_dig, x_axis):
     X = np.flip(X);
     Y = np.flip(Y);
 
+    # If TE is sharp, force Y values at the TE to be 0 for both points
+    if closed_te:
+        Y[0] = 0;
+        Y[-1] = 0;
+
     # Combine combined X,Y coordinate linspaces into 2N-1 x 2 matrix
     XY_coords = np.column_stack((X,Y));
     return XY_coords;
 
-def save_coords_decision(NACA_dig, XY_coords):
+def save_coords_decision(NACA_dig, XY_coords, closed_te=False):
     # Before writing coordinate points to .dat file, check if dedicated folder exists to avoid conflicts
     Path("saved_airfoil_coords").mkdir(exist_ok=True)
 
@@ -143,7 +150,13 @@ def save_coords_decision(NACA_dig, XY_coords):
                 code+= str(NACA_dig);
                 
                 N = int(0.5*(len(XY_coords) + 1))
-                filename = f"NACA_{code}_N{N}.dat"
+
+                # Change file name on if the TE is closed or open
+                if closed_te:
+                    filename = f"NACA_{code}_N{N}_CTE.dat"
+                else:
+                    filename = f"NACA_{code}_N{N}_OTE.dat"
+
                 filepath = Path("saved_airfoil_coords") / filename
 
                 with open(filepath, 'w') as f:
@@ -243,5 +256,25 @@ def get_naca4_input():
         print(f"Your airfoil is: NACA {raw}")
         print("---")
         return NACA_dig;
+
+def isClosedTE():
+    while True:
+        # Read user input for desired N chordwise points
+        try:
+            closed_TE = int(input("Enter 1 for Sharp Trailing Edge or 0 to keep Open: "));
+        except ValueError:
+            print("Invalid input. Please enter a whole number.")
+            print("---")
+            continue
+        
+        if (closed_TE != 0) and (closed_TE != 1):
+            print("Invalid input. Please enter either 0 (Blunt) or 1.")
+            print("---")
+            continue
+
+        if closed_TE == 0:
+            return False;
+        else:
+            return True;
 
 naca_gen_script();
