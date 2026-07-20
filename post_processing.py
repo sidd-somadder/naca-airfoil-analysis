@@ -6,6 +6,8 @@ import numpy as np;
 import os;
 import pandas as pd;
 
+# Plotting methods used across different scripts to display coefficient data for different computational results
+
 # Plots any combination of lift and moment coefficients against angle of attack.
 # Pass only the series you have; omitted ones are simply not drawn.
 def plot_coeffs(a, c_l_TAT=None, c_l_KJ=None, c_l_P=None, c_mLE=None, c_mqc=None, title=None):
@@ -38,13 +40,15 @@ def plot_coeffs(a, c_l_TAT=None, c_l_KJ=None, c_l_P=None, c_mLE=None, c_mqc=None
     plt.tight_layout();
     plt.show();
 
-def plot_pressure(coeff_P_matrix, midpoints, alphas):
+# Plots pressure against a specified angle of attack until user decides to quit
+def plot_pressure(coeff_P_matrix, midpoints, alphas, method='VPM'):
     x_coords = midpoints[:, 0];
 
     # Reverse Selig order is TE -> lower -> LE -> upper -> TE.
-    # Split at the leading edge (minimum x/c) to colour the surfaces separately.
+    # Split at the leading edge (minimum x/c) to colour the surfaces separately for easier visuals.
     le_idx = np.argmin(x_coords);
 
+    # Show AOA from user defined range and move to nearest valid AOA if bad user input.
     print(f"Available angles of attack: {alphas}");
 
     while True:
@@ -52,18 +56,21 @@ def plot_pressure(coeff_P_matrix, midpoints, alphas):
         if user_input.lower() == 'q':
             break;
 
+        # If not a float value, force user to enter float or quit.
         try:
             requested_aoa = float(user_input);
         except ValueError:
             print("Invalid input -- please enter a numeric angle or 'q'.");
             continue;
 
+        # For floats not in angle range, find the nearest AOA in user defined range.
         k = np.argmin(np.abs(alphas - requested_aoa));
         matched_aoa = alphas[k];
 
         if not np.isclose(matched_aoa, requested_aoa, atol=1e-6):
             print(f"No exact match for {requested_aoa}°; showing closest available angle: {matched_aoa:.2f}°.");
 
+        # Isolate the kth set of coefficient of pressure values corresponding to the kth AOA in range
         cp = coeff_P_matrix[:, k];
 
         fig, ax = plt.subplots(figsize=(9, 6));
@@ -81,11 +88,15 @@ def plot_pressure(coeff_P_matrix, midpoints, alphas):
         ax.axhline(0, color='black', linewidth=0.8, linestyle='--');
         ax.set_xlabel(r'$x/c$');
         ax.set_ylabel(r'$C_p$');
-        ax.set_title(rf'VPM — Pressure Distribution ($\alpha$ = {matched_aoa:.1f}°)');
+        ax.set_title(rf'{method} — Pressure Distribution ($\alpha$ = {matched_aoa:.1f}°)');
         ax.legend();
         ax.grid(True, linestyle=':', alpha=0.6);
         plt.tight_layout();
         plt.show();
+
+# --------------------------------
+# Exporting methods used across different scripts to save coefficient data from different computation methods
+
 
 def export_VPM_pressure(coeff_P_matrix, midpoints, alphas, input_file_name, method="VPM"):
     output_dir = os.path.join(os.path.dirname(__file__), "computation_results");
@@ -107,3 +118,31 @@ def export_VPM_pressure(coeff_P_matrix, midpoints, alphas, input_file_name, meth
 
     df.to_csv(output_path, index=False, float_format="%.6f");
     print(f"{method} pressure distribution results exported: {output_path}");
+
+# Function that saves aerodynamics coefficients to a .csv file for master script to plot
+def export_tat_results(alphas, coeffs, input_file_name, zl_ang):
+    
+    # Define the output folder relative to the directory of this script
+    output_dir = os.path.join(os.path.dirname(__file__), "computation_results")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Strip .dat extension for clean output naming
+    identifier = input_file_name.replace(".dat", "")
+    output_path = os.path.join(output_dir, f"TAT_{identifier}_results.csv")
+
+    # Write airfoil name & zero-lift angle as metadata comment header
+    with open(output_path, "w") as f:
+        f.write(f"# Thin Airfoil Theory Results: {identifier}\n")
+        f.write(f"# Zero-lift angle of attack: {zl_ang:.4f} deg\n")
+
+    # Use Pandas to format information in coefficient matrix via dataframe
+    df = pd.DataFrame({
+        "alpha_deg"  : alphas,
+        "c_L"        : coeffs[:, 0],
+        "c_M_LE"     : coeffs[:, 1],
+        "c_M_QC"     : coeffs[:, 2]
+    })
+
+    # Convert coefficient matrix into .csv file and inform user of the output
+    df.to_csv(output_path, index=False, float_format="%.6f", mode="a")
+    print(f"TAT results exported: {output_path}")

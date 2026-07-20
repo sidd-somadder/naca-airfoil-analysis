@@ -4,13 +4,9 @@
 
 # Currently, this thin airfoil theory solver's scope is to only handle NACA 4-digit series 
 
-import sys;
 import numpy as np;
-import matplotlib.pyplot as plt;
 import scipy.integrate as scpi;
-import pandas as pd;
-from post_processing import plot_coeffs;
-import os;
+from post_processing import plot_coeffs, export_tat_results;
 
 
 def run_tat_solver(input_file_name, alphas):
@@ -43,7 +39,7 @@ def run_tat_solver(input_file_name, alphas):
     plot_coeffs(alphas, c_l_TAT=c_l, c_mLE=c_mLE, c_mqc=c_mqc);
     export_tat_results(alphas, coeffs, input_file_name, angle_zero_lift);
 
-# temp print statements to verify values w/ calculator
+# print statements to verify values w/ calculator
 def printvals(a, l, mLE, mqc, zla):
     print(f"alphas : {a}");
     print("---");
@@ -113,31 +109,3 @@ def asym_4digit_solver(code, alphas_rad):
 
     # Return coefficients in matrix form and zero lift angle of attack as a tuple
     return np.column_stack((c_l, c_mLE, c_mqc)), zero_lift_angle;
-    
-# Function that saves aerodynamics coefficients to a .csv file for master script to plot
-def export_tat_results(alphas, coeffs, input_file_name, zl_ang):
-    
-    # Define the output folder relative to the directory of this script
-    output_dir = os.path.join(os.path.dirname(__file__), "computation_results")
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Strip .dat extension for clean output naming
-    identifier = input_file_name.replace(".dat", "")
-    output_path = os.path.join(output_dir, f"TAT_{identifier}_results.csv")
-
-    # Write airfoil name & zero-lift angle as metadata comment header
-    with open(output_path, "w") as f:
-        f.write(f"# Thin Airfoil Theory Results: {identifier}\n")
-        f.write(f"# Zero-lift angle of attack: {zl_ang:.4f} deg\n")
-
-    # Use Pandas to format information in coefficient matrix via dataframe
-    df = pd.DataFrame({
-        "alpha_deg"  : alphas,
-        "c_L"        : coeffs[:, 0],
-        "c_M_LE"     : coeffs[:, 1],
-        "c_M_QC"     : coeffs[:, 2]
-    })
-
-    # Convert coefficient matrix into .csv file and inform user of the output
-    df.to_csv(output_path, index=False, float_format="%.6f", mode="a")
-    print(f"TAT results exported: {output_path}")
