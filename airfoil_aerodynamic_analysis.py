@@ -3,8 +3,8 @@
 # The master script will call all three scripts for results and plot the c_l, c_m,LE, and c_m,c/4 values against AOA.
 # The user can choose to save the results of all three scripts in the computation_results folder.
 
-from ThinAirfoilTheory import run_tat_solver
-from VortexPanelMethod import run_vpm_solver
+from thin_airfoil_theory import run_tat_solver
+from constant_vpm import run_cvpm_solver
 from xfoil_wrapper import run_xfoil_solver
 import numpy as np;
 import os;
@@ -85,7 +85,7 @@ sample_file_name1 = "NACA_2412_N200.dat";
 
 angle_param = get_angle_params();
 geom_points = load_dat_coordinates(sample_file_name1);
-run_vpm_solver(geom_points, angle_param, sample_file_name1);
+run_cvpm_solver(geom_points, angle_param, sample_file_name1);
 
 # Temporary sample file names to test cross-script function calls
 
