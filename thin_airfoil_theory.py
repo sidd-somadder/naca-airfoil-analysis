@@ -9,6 +9,7 @@ import numpy as np;
 import matplotlib.pyplot as plt;
 import scipy.integrate as scpi;
 import pandas as pd;
+from post_processing import plot_coeffs;
 import os;
 
 
@@ -39,7 +40,7 @@ def run_tat_solver(input_file_name, alphas):
     c_mqc = coeffs[:,2];
 
     printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
-    coeff_visualizer(alphas, c_l, c_mLE, c_mqc);
+    plot_coeffs(alphas, c_l_TAT=c_l, c_mLE=c_mLE, c_mqc=c_mqc);
     export_tat_results(alphas, coeffs, input_file_name, angle_zero_lift);
 
 # temp print statements to verify values w/ calculator
@@ -53,18 +54,6 @@ def printvals(a, l, mLE, mqc, zla):
     print(f"LE moment coeff : {mLE}");
     print("---");
     print(f"QC moment coeff : {mqc}");
-
-# Temporary plotting to confirm visually
-def coeff_visualizer(a, l, mLE, mqc):
-    fig, ax = plt.subplots(figsize=(9, 6))
-    ax.plot(a, l,   label=r'$C_L$',       color='steelblue', linewidth=2)
-    ax.plot(a, mLE, label=r'$C_{M,LE}$',  color='firebrick', linewidth=2)
-    ax.plot(a, mqc, label=r'$C_{M,c/4}$', color='seagreen',  linewidth=2)
-    ax.axhline(0, color='black', linewidth=0.8, linestyle='--')
-    ax.axvline(0, color='black', linewidth=0.8, linestyle='--')
-    ax.set_xlabel(r'$\alpha$ (°)'); ax.set_ylabel('Coefficient')
-    ax.set_title('TAT — Quick Check'); ax.legend(); ax.grid(True, linestyle=':', alpha=0.6)
-    plt.tight_layout(); plt.show()
 
 def sym_4digit_solver(alphas_rad):
     # Use known thin airfoil theory results for symmetric airfoils.
