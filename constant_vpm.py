@@ -4,15 +4,14 @@
 # Constant Strength Vortex Method is used here; Future implementations will include a linear-strength vortex method for comparison
 
 import numpy as np;
-from panel_geometry import get_geom_params, compute_KL_inf_matrices, isClosedTE_file;
+from panel_geometry import get_geom_params, compute_KL_inf_matrices;
 from post_processing import plot_coeffs, plot_pressure, export_VPM_pressure;
 
 # Assume points are already processed into reverse Selig format
 def run_cvpm_solver(geom_points, alphas, input_file_name):
-    closed_te = isClosedTE_file(input_file_name);
 
     # Retrieve tangential angles (phi), panel lengths, and panel midpoints (collocation points)
-    phi, beta, panel_lengths, midpoints = get_geom_params(geom_points, closed_te);
+    phi, beta, panel_lengths, midpoints = get_geom_params(geom_points);
 
     # Convert angle of attack to radians
     alphas_rad = alphas * np.pi/180;
@@ -23,22 +22,16 @@ def run_cvpm_solver(geom_points, alphas, input_file_name):
 
     K,L = compute_KL_inf_matrices(geom_points, midpoints, panel_lengths, phi);
 
-    if closed_te:
-        kutta = np.zeros(M);
-        kutta[0] = 1;  kutta[M-1] = 1;
-        K_solve = np.vstack([K, kutta]); 
-    else: 
-        # We replace the blunt TE panel influence equation with the Kutta Condition for the panels adjacent to TE points
-        K_solve = K.copy();
-        K_solve[-1,:] = 0;
-        K_solve[-1,0] = 1;
-        K_solve[-1,M-2] = 1;
+    K_solve = K.copy();
+    K_solve[-1,:] = 0;
+    K_solve[-1,0] = 1;
+    K_solve[-1,M-2] = 1;
 
     for k in range(N):
-        RHS = V2DC_RHS_vec(alphas_rad[k], beta, closed_te);
+        RHS = V2DC_RHS_vec(alphas_rad[k], beta);
 
         # The kth column of gamma_distribution corresponds to the kth angle in alphas_rad
-        gamma_distribution[:,k] = V2DC_solve_gamma_eqn(K_solve, RHS, closed_te);
+        gamma_distribution[:,k] = V2DC_solve_gamma_eqn(K_solve, RHS);
 
     coeff_P_matrix = V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L);
     export_VPM_pressure(coeff_P_matrix, midpoints, alphas, input_file_name, method='CVPM');
@@ -51,30 +44,22 @@ def run_cvpm_solver(geom_points, alphas, input_file_name):
 
 # Returns the RHS for the Kg = RHS matrix equation
 # Takes specified angle of attack (alpha) and all local panel tangential angles (beta);
-def V2DC_RHS_vec(alpha, beta, closed_te=False):
+def V2DC_RHS_vec(alpha, beta):
     # If there are N outward normal angles, then there are N panels, and therefore the RHS has N elements
     RHS = np.zeros_like(beta);
 
     # (RHS)_i = 2pi * V_inf * cos(beta - alpha)
     RHS = 2 * np.pi * np.cos(beta - alpha)
 
-    if closed_te:
-        # Kutta is an appended row for closed TE least squares solution; RHS has length M+1
-        return np.append(RHS, 0.0);
-    else:
-        # If open, last row is overwritten by the Kutta condition; last row RHS is rewritten to be 0
-        RHS[-1] = 0.0;
-        return RHS;                          # length M
+    # If open, last row is overwritten by the Kutta condition; last row RHS is rewritten to be 0
+    RHS[-1] = 0.0;
+    
+    return RHS;                          # length M
 
 # From other methods compute the coefficient matrix A and the RHS boundary conditions vector.
 # Looped for each RHS vector for each alpha; main method saves local vortex strengths as matrix for each angle of attack
-def V2DC_solve_gamma_eqn(K_solve, RHS, closed_te=False):
+def V2DC_solve_gamma_eqn(K_solve, RHS):
     # Solve the linear system of equations for all gamma values for each panel. 
-    # Use least squares solution for closed TE since all panels are valid
-    if closed_te:
-        gamma, *_ = np.linalg.lstsq(K_solve, RHS, rcond=None);
-        return gamma;
-    # Otherwise solve linearly using replaced blunt TE eqn. 
     return np.linalg.solve(K_solve, RHS);
 
 def V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L_matrix): 
