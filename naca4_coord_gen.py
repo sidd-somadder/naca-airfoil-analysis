@@ -4,9 +4,7 @@
 # Libraries for computation, numerical solving, plotting, and data exporting
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import brentq
 from pathlib import Path
-import sys 
 
 def naca_gen_script():
     # Collect NACA series airfoil from user input
