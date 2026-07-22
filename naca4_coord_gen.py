@@ -96,8 +96,9 @@ def naca4gen(NACA_dig, x_axis, closed_te=False):
                          2*m/(p**2) * (p - x_axis), 
                          2*m/((1-p)**2) * (p - x_axis));
 
+    a4 = -0.1036 if closed_te else -0.1015;
     # Calculate thickness distribution of NACA airfoil using known equation
-    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1015*(x_axis**4));
+    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) + a4*(x_axis**4));
 
     # Calculate tangential angle of the mean camberline slope
     theta = np.arctan(dy_mc);
@@ -124,7 +125,6 @@ def naca4gen(NACA_dig, x_axis, closed_te=False):
     X = np.flip(X);
     Y = np.flip(Y);
 
-    # If TE is sharp, force Y values at the TE to be 0 for both points
     if closed_te:
         Y[0] = 0;
         Y[-1] = 0;

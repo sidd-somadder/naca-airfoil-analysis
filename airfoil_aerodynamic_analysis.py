@@ -55,7 +55,7 @@ def get_angle_params():
         else:
             print("Invalid choice. Please enter Y or N.");
 
-sample_file_name1 = "NACA_0012_N100_CTE.dat";
+sample_file_name1 = "NACA_0012_N200_CTE.dat";
 
 angle_param = get_angle_params();
 geom_points = load_dat_coordinates(sample_file_name1);

@@ -100,8 +100,9 @@ def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
                 K[i,j] = (C_k/2) * log_term;
                 L[i,j] = (C_l/2) * log_term;
 
-                K[i,j] += ((D_k - A*C_k)/E)*atan_term;
-                L[i,j] += ((D_l - A*C_l)/E)*atan_term;
+                if E != 0:
+                    K[i,j] += ((D_k - A*C_k)/E)*atan_term;
+                    L[i,j] += ((D_l - A*C_l)/E)*atan_term;
 
             # Zero out any remaining problem values
             if (np.iscomplex(K[i,j]) or np.isnan(K[i,j]) or np.isinf(K[i,j])):      # If K term is complex or a NAN or an INF
