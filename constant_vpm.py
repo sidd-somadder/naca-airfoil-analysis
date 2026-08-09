@@ -5,10 +5,14 @@
 
 import numpy as np;
 from panel_geometry import get_geom_params, compute_KL_inf_matrices;
-from post_processing import plot_coeffs, plot_pressure, export_VPM_pressure;
+from post_processing import plot_coeffs, plot_pressure, export_VPM_pressure, plot_cp_comparison;
+from xfoil_wrapper import run_xfoil_cp;
+import os;
 
 # Assume points are already processed into reverse Selig format
 def run_cvpm_solver(geom_points, alphas, input_file_name):
+    dat_path = os.path.join(os.path.dirname(__file__), "saved_airfoil_coords", input_file_name);
+
 
     # Retrieve tangential angles (phi), panel lengths, and panel midpoints (collocation points)
     phi, beta, panel_lengths, midpoints = get_geom_params(geom_points);
@@ -37,10 +41,15 @@ def run_cvpm_solver(geom_points, alphas, input_file_name):
     export_VPM_pressure(coeff_P_matrix, midpoints, alphas, input_file_name, method='CVPM');
 
     invP = invalid_panel_indices(M);
-    c_l_KJ, c_l = VPM_get_coeffs(gamma_distribution, panel_lengths, coeff_P_matrix, beta, alphas_rad, invP);
+    cL_KJ, cL_P = VPM_get_coeffs(gamma_distribution, panel_lengths, coeff_P_matrix, beta, alphas_rad, invP);
 
-    plot_coeffs(alphas, c_l_KJ=c_l_KJ, c_l_P=c_l, title='Const. VPM Lift Coefficient Comparison (KJ vs. Pressure)');
+    plot_coeffs(alphas, cL_KJ=cL_KJ, cL_P=cL_P, title='Const. VPM Lift Coefficient Comparison (KJ vs. Pressure)');
     plot_pressure(coeff_P_matrix, midpoints, alphas);
+
+    xf_cp = run_xfoil_cp(dat_path, alpha=5.0, n_panels=len(geom_points));
+    plot_cp_comparison(coeff_P_matrix, midpoints, alphas, 5.0, xf_cp);
+
+    return cL_KJ, cL_P, coeff_P_matrix;
 
 # Returns the RHS for the Kg = RHS matrix equation
 # Takes specified angle of attack (alpha) and all local panel tangential angles (beta);

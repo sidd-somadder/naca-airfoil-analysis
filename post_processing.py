@@ -10,14 +10,22 @@ import pandas as pd;
 
 # Plots any combination of lift and moment coefficients against angle of attack.
 # Pass only the series you have; omitted ones are simply not drawn.
-def plot_coeffs(a, c_l_TAT=None, c_l_KJ=None, c_l_P=None, c_mLE=None, c_mqc=None, title=None):
+def plot_coeffs(a, cL_TAT=None, cL_KJ=None, cL_P=None, cL_xf=None, cL_xfV=None, cmLE_TAT=None, cmLE_VPM=None, cmLE_xf=None, cmLE_xfV=None, cmqc_TAT=None, cmqc_VPM=None, cmqc_xf=None, cmqc_xfV=None, title=None):
     # (series, label, colour) -- order sets the legend order
     series = [
-        (c_l_TAT, r'$C_L$ (Thin Airfoil)', 'indigo'),
-        (c_l_KJ, r'$C_L$ (Kutta-Joukowski)', 'steelblue'),
-        (c_l_P,  r'$C_L$ (pressure integration)', 'firebrick'),
-        (c_mLE,  r'$C_{M,LE}$',  'seagreen'),
-        (c_mqc,  r'$C_{M,c/4}$', 'darkorange'),
+        (cL_TAT, r'$C_L$ (Thin Airfoil)', 'indigo'),
+        (cL_KJ, r'$C_L$ (Kutta-Joukowski)', 'steelblue'),
+        (cL_P,  r'$C_L$ (pressure integration)', 'firebrick'),
+        (cL_xf,  r'$C_L$ (XFOIL, Inviscid)', 'fuchsia'),
+        (cL_xfV,  r'$C_L$ (XFOIL, Viscous)', 'blue'),
+        (cmLE_TAT,  r'$C_{M,LE} (Thin Airfoil)$',  'seagreen'),
+        (cmLE_VPM,  r'$C_{M,LE}$ (VPM)',  'slategrey'),
+        (cmLE_xf,  r'$C_{M,LE}$ (XFOIL, Invsicid)', 'darkorange'),
+        (cmLE_xfV,  r'$C_{M,LE}$ (XFOIL, Viscous)', 'red'),
+        (cmqc_TAT,  r'$C_{M,c/4}$ (Thin Airfoil)', 'navy'),
+        (cmqc_VPM,  r'$C_{M,c/4}$ (VPM)',  'goldenrod'),
+        (cmqc_xf,  r'$C_{M,c/4}$ (XFOIL, Inviscid)', 'chartreuse'),
+        (cmqc_xfV,  r'$C_{M,c/4}$ (XFOIL, Viscous)', 'indigo'),
     ];
 
     provided = [(y, lbl, col) for (y, lbl, col) in series if y is not None];
@@ -146,3 +154,112 @@ def export_tat_results(alphas, coeffs, input_file_name, zl_ang):
     # Convert coefficient matrix into .csv file and inform user of the output
     df.to_csv(output_path, index=False, float_format="%.6f", mode="a")
     print(f"TAT results exported: {output_path}")
+
+def plot_cl_with_residuals(alphas, curves, ref_label, airfoil_name):
+    if ref_label not in curves:
+        raise KeyError(f"Reference '{ref_label}' not found in curves: {list(curves.keys())}");
+
+    ref = np.asarray(curves[ref_label]);
+
+    fig, (ax_top, ax_bot) = plt.subplots(
+        2, 1, sharex=True, figsize=(9, 8),
+        gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.08}
+    );
+
+    # --- Top panel: absolute Cl curves ---
+    for label, cl in curves.items():
+        ax_top.plot(alphas, cl, linewidth=2, label=label);
+
+    ax_top.axhline(0, color='black', linewidth=0.8, linestyle='--');
+    ax_top.axvline(0, color='black', linewidth=0.8, linestyle='--');
+    ax_top.set_ylabel(r'$C_L$');
+    ax_top.set_title(f'Lift Coefficient Results — NACA {airfoil_name}');
+    ax_top.legend();
+    ax_top.grid(True, linestyle=':', alpha=0.6);
+
+    # --- Bottom panel: residuals relative to the reference method ---
+    for label, cl in curves.items():
+        if label == ref_label:
+            continue;   # reference minus itself is identically zero
+        ax_bot.plot(alphas, np.asarray(cl) - ref, linewidth=2, label=label);
+
+    ax_bot.axhline(0, color='black', linewidth=0.8, linestyle='--');
+    ax_bot.set_xlabel(r'$\alpha$ (°)');
+    ax_bot.set_ylabel(rf'$\Delta C_L$ vs. {ref_label}');
+    ax_bot.grid(True, linestyle=':', alpha=0.6);
+
+    plt.tight_layout();
+    plt.show();
+
+# Overlays VPM and XFOIL inviscid Cp distributions for a single angle of attack.
+#
+# NOTE ON ORDERING: this project's solver arrays run in reverse Selig order
+# (TE -> lower -> LE -> upper -> TE), while XFOIL's CPWR output runs standard
+# Selig (TE -> upper -> LE -> lower -> TE). The two traversals are opposite, so
+# each source is split at its own leading edge and the surfaces are identified
+# by the SIGN of y rather than by array position.
+def plot_cp_comparison(coeff_P_matrix, midpoints, alphas, alpha_target,
+                       xfoil_cp_df, title=None):
+    """
+    Parameters
+    ----------
+    coeff_P_matrix : (M, N) ndarray
+        VPM Cp, full length M with np.nan at invalid panels.
+    midpoints : (M, 2) ndarray
+        VPM collocation points, full length M.
+    alphas : (N,) ndarray
+        Angles of attack in DEGREES (the VPM sweep).
+    alpha_target : float
+        Angle to plot. The closest available VPM angle is used.
+    xfoil_cp_df : DataFrame
+        From run_xfoil_cp(), with columns x, y, Cp -- taken at the SAME angle.
+    """
+    k = np.argmin(np.abs(alphas - alpha_target));
+    matched = alphas[k];
+    if not np.isclose(matched, alpha_target, atol=1e-6):
+        print(f"No exact VPM match for {alpha_target}°; using {matched:.2f}°.");
+
+    # --- VPM data, split by surface via y-sign ---
+    x_v  = midpoints[:, 0];
+    y_v  = midpoints[:, 1];
+    cp_v = coeff_P_matrix[:, k];
+    up_v = y_v >= 0;
+
+    # --- XFOIL data, split the same way ---
+    x_x  = xfoil_cp_df["x"].to_numpy();
+    y_x  = xfoil_cp_df["y"].to_numpy();
+    cp_x = xfoil_cp_df["Cp"].to_numpy();
+    up_x = y_x >= 0;
+
+    fig, ax = plt.subplots(figsize=(9, 6));
+
+    # XFOIL first, as a solid reference line underneath.
+    ax.plot(x_x[up_x],  cp_x[up_x],  color='black', linewidth=2,
+            label='XFOIL (inviscid), upper');
+    ax.plot(x_x[~up_x], cp_x[~up_x], color='black', linewidth=2,
+            linestyle='--', label='XFOIL (inviscid), lower');
+
+    # VPM on top, with markers so the panel-to-panel behaviour is visible.
+    ax.plot(x_v[up_v],  cp_v[up_v],  color='firebrick', linewidth=1.2,
+            marker='o', markersize=2.5, label='VPM, upper');
+    ax.plot(x_v[~up_v], cp_v[~up_v], color='steelblue', linewidth=1.2,
+            marker='o', markersize=2.5, label='VPM, lower');
+
+    # Scale the axes to the XFOIL data, so a VPM outlier cannot flatten the plot.
+    lo = min(np.nanmin(cp_x), -1.0);
+    hi = max(np.nanmax(cp_x),  1.0);
+    pad = 0.15 * (hi - lo);
+    ax.set_ylim(hi + pad, lo - pad);       # inverted; no invert_yaxis() needed
+
+    ax.axhline(0, color='grey', linewidth=0.8, linestyle=':');
+    ax.set_xlabel(r'$x/c$');
+    ax.set_ylabel(r'$C_p$');
+    ax.set_title(title if title else
+                 rf'Constant VPM vs XFOIL inviscid ($\alpha$ = {matched:.1f}°)');
+    ax.legend(loc='lower right', fontsize=9);
+    ax.grid(True, linestyle=':', alpha=0.6);
+    plt.tight_layout();
+    plt.show();
+
+def plot_cond():
+    print();

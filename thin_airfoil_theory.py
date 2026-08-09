@@ -12,7 +12,7 @@ from post_processing import plot_coeffs, export_tat_results;
 def run_tat_solver(input_file_name, alphas):
     alphas_rad = alphas * (np.pi / 180);
 
-    # Extract the numeric code from the required "NACA_XXXX_N#.csv" naming convention.
+    # Extract the numeric code from the required "NACA_XXXX_N#.dat" naming convention.
     code_name = input_file_name.split("_")[1];
 
     try:
@@ -36,8 +36,10 @@ def run_tat_solver(input_file_name, alphas):
     c_mqc = coeffs[:,2];
 
     printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
-    plot_coeffs(alphas, c_l_TAT=c_l, c_mLE=c_mLE, c_mqc=c_mqc);
+    plot_coeffs(alphas, cL_TAT=c_l, cmLE_TAT=c_mLE, cmqc_TAT=c_mqc);
     export_tat_results(alphas, coeffs, input_file_name, angle_zero_lift);
+
+    return c_l, c_mLE, c_mqc;
 
 # print statements to verify values w/ calculator
 def printvals(a, l, mLE, mqc, zla):

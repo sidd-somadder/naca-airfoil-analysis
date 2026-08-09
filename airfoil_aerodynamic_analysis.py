@@ -5,9 +5,11 @@
 
 from thin_airfoil_theory import run_tat_solver
 from constant_vpm import run_cvpm_solver
-from xfoil_wrapper import run_xfoil_solver
+from xfoil_wrapper import run_xfoil_solver, run_xfoil_cp;
 from panel_geometry import load_dat_coordinates
+from post_processing import plot_coeffs, plot_cl_with_residuals, plot_cp_comparison;
 import numpy as np;
+import os;
 
 def get_file_name():
     print();
@@ -23,8 +25,18 @@ def get_angle_params():
     print("-" * 10)
 
     # Upper and lower bounds of range is defined by user input
-    inf = float(input("  Lower bound in whole degrees (e.g. -5): "))
-    sup = float(input("  Upper bound  (e.g. 15): "))
+    try:
+        inf = float(input("  Lower bound in whole degrees (e.g. -5): "))
+    except ValueError:
+        print("Invalid input. Using -5 deg. as default lower bound");
+        inf = float(-5);
+
+    try:
+        sup = float(input("  Upper bound  (e.g. 15): "))
+    except ValueError:
+        print("Invalid input. Using 15 deg. as default upper bound");
+        sup = float(15);
+
 
     # User determines step-size in degrees
     print()
@@ -55,18 +67,47 @@ def get_angle_params():
         else:
             print("Invalid choice. Please enter Y or N.");
 
-sample_file_name1 = "NACA_0012_N200_CTE.dat";
 
 angle_param = get_angle_params();
-geom_points = load_dat_coordinates(sample_file_name1);
-run_cvpm_solver(geom_points, angle_param, sample_file_name1);
 
-# Temporary sample file names to test cross-script function calls
+filename = ["NACA_0012_N100.dat",
+            "NACA_2412_N100.dat"];
 
-# Should print that input is a NACA airfoil
-#print(f"Using sample {sample_file_name1} : ")
-run_tat_solver(sample_file_name1, angle_param);
-#print("---");
+for k in filename:
+    dat_path = os.path.join(os.path.dirname(__file__), "saved_airfoil_coords", k);
+
+    code_name = k.split("_")[1];
+
+    title_name = f"NACA {code_name}"
+
+    # your solver
+    geom_points = load_dat_coordinates(k);
+    cL_KJ, cL_P, coeff_P_matrix = run_cvpm_solver(geom_points, angle_param, k);
+
+    # XFOIL on the same file
+    cl_xf, cmLE_xf, cmqc_xfv = run_xfoil_solver(dat_path, angle_param, len(geom_points));
+    cl_xfV, cmLE_xfv, cmLE_xfV = run_xfoil_solver(dat_path, angle_param, len(geom_points), viscous=True);
+
+
+    # Temporary sample file names to test cross-script function calls
+
+    # Should print that input is a NACA airfoil
+    #print(f"Using sample {sample_file_name1} : ")
+    cl_tat, cmLE_tat, cmqc_tat = run_tat_solver(k, angle_param);
+    #print("---");
+
+    curves = {
+    'Thin Airfoil':         cl_tat,
+    'Kutta-Joukowski':      cL_KJ,
+    'Pressure Integration': cL_P,
+    'XFOIL, Inviscid':      cl_xf,
+    }
+
+    plot_coeffs(angle_param, cL_TAT=cl_tat, cL_KJ=cL_KJ, cL_P=cL_P, cL_xf=cl_xf, title=f'Lift Coefficient Results - {title_name}')
+    plot_cl_with_residuals(angle_param, curves, ref_label='XFOIL, Inviscid', airfoil_name=code_name);
+
+    xf_cp = run_xfoil_cp(dat_path, alpha=5.0, n_panels=len(geom_points));
+
 
 # # Should print that input is not a NACA airfoil
 # print(f"Using sample {sample_file_name2} : ")
