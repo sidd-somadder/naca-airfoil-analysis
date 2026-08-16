@@ -1,2 +1,0 @@
-# This implements a linear strength vortex panel method, which builds on the constant strength method to be more accurate
-# Where the solved gammas are per panel node and the gamma values vary linearly between nodes 
