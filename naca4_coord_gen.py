@@ -11,44 +11,46 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+# This method handles the entire process of airfoil generation from user input to plotting & exporting.
+# if naca4_coord_gen.py is called from another file, call THIS method for generation.
 def naca_gen_script():
     # Collect NACA series airfoil from user input
-    NACA_dig = get_naca4_input();
+    NACA_dig = get_naca4_input()
 
     # Get chordwise point count and total surface point count.
-    N = get_mesh_param();
+    N = get_mesh_param()
 
     # Use half-cosine spacing to make surface point distribution finer near trailing edge and leading edge
-    beta = np.linspace(0, np.pi, N);
-    x_axis = 0.5 * (1 - np.cos(beta));
-    print("---");
+    beta = np.linspace(0, np.pi, N)
+    x_axis = 0.5 * (1 - np.cos(beta))
+    print("---")
 
     # At this point, assume that incorrect inputs have been filtered out by earlier input verification code block
     # Call function to get coordinate point matrix
-    XY_coords = naca4gen(NACA_dig, x_axis);    
+    XY_coords = naca4gen(NACA_dig, x_axis) 
 
-    print("---");
+    print("---")
 
     # Call plotter method so user can see their airfoil visually
-    naca_plot(NACA_dig, XY_coords);
+    naca_plot(NACA_dig, XY_coords)
 
     # Ask user if they want to save airfoil coordinates as .dat file
-    save_coords_decision(NACA_dig, XY_coords);
+    save_coords_decision(NACA_dig, XY_coords)
 
 # Plotter method called automatically in main script. 
 # Takes the NACA digit name and the computed coordinate list as input. 
 def naca_plot(NACA_dig, XY_coords):
-    print("Plotting airfoil...");
+    print("Plotting airfoil...")
     # Extract X and Y values from output coordinate matrix
     x_plot = XY_coords[:, 0]
     y_plot = XY_coords[:, 1]
 
-    panel_ct = len(XY_coords);
+    panel_ct = len(XY_coords)
 
-    code = "";
+    code = ""
     if NACA_dig // 100 == 0:
         code = "00"
-    code+= str(NACA_dig);
+    code+= str(NACA_dig)
 
     # Plot airfoil geometry:
     plt.figure(figsize=(10, 4))
@@ -65,59 +67,59 @@ def naca_plot(NACA_dig, XY_coords):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-    print("---");
+    print("---")
 
 # Method that generates upper and lower coordinates using mean camberline and thickness distribution equations
 # NACA digits and discretized x-axis array are inputs, M x 2 size coordinate matrix is output.
 def naca4gen(NACA_dig, x_axis):
     # For 4-digit airfoils, compute max camber (m), p (max camber location), and t (thickness) values in percentage chord
-    m_dig = NACA_dig // 1000;
-    p_dig = ((NACA_dig % 1000) // 100); 
-    t_dig = NACA_dig % 100;
+    m_dig = NACA_dig // 1000
+    p_dig = ((NACA_dig % 1000) // 100)
+    t_dig = NACA_dig % 100
 
     # Convert digits into % chord values for each parameter 
-    m = m_dig/100;
-    p = p_dig/10;
-    t = t_dig/100;
+    m = m_dig/100
+    p = p_dig/10
+    t = t_dig/100
 
     # Print % chord values
     print(f"NACA {NACA_dig} details: ")
-    print(f"Max Camber % : {m}");
-    print(f"Max Camber Position % : {p}");
-    print(f"Max Thickness % : {t}");
+    print(f"Max Camber % : {m}")
+    print(f"Max Camber Position % : {p}")
+    print(f"Max Thickness % : {t}")
 
     # Handle symmetric vs asymmetric camber line calculations explicitly
     if m == 0 or p == 0:
         # Symmetric case: no camber line or slope variations
-        y_mc = np.zeros_like(x_axis);
-        dy_mc = np.zeros_like(x_axis);
+        y_mc = np.zeros_like(x_axis)
+        dy_mc = np.zeros_like(x_axis)
     else:
         # Asymmetric case: define mean camberline & slope using standard equations
         y_mc = np.where((0 <= x_axis) & (x_axis < p), 
                         m/(p**2) * (2*p*x_axis - x_axis**2), 
-                        m/((1-p)**2) * ((1-2*p) + 2*p*x_axis - x_axis**2));
+                        m/((1-p)**2) * ((1-2*p) + 2*p*x_axis - x_axis**2))
         
         dy_mc = np.where((0 <= x_axis) & (x_axis < p), 
                          2*m/(p**2) * (p - x_axis), 
-                         2*m/((1-p)**2) * (p - x_axis));
+                         2*m/((1-p)**2) * (p - x_axis))
 
     # Calculate thickness distribution of NACA airfoil using known equation
-    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1015*(x_axis**4));
+    y_t = 5*t*(0.2969 * np.sqrt(x_axis) - 0.1260*x_axis - 0.3516*(x_axis**2) + 0.2843*(x_axis**3) - 0.1015*(x_axis**4))
 
     # Calculate tangential angle of the mean camberline slope
-    theta = np.arctan(dy_mc);
+    theta = np.arctan(dy_mc)
 
     # Define upper and lower airfoil camber line coordinates
-    x_upper = x_axis - y_t * np.sin(theta);
-    x_lower = x_axis + y_t * np.sin(theta);
-    y_upper = y_mc + y_t * np.cos(theta);
-    y_lower = y_mc - y_t * np.cos(theta);
+    x_upper = x_axis - y_t * np.sin(theta)
+    x_lower = x_axis + y_t * np.sin(theta)
+    y_upper = y_mc + y_t * np.cos(theta)
+    y_lower = y_mc - y_t * np.cos(theta)
 
     # Process upper/lower x,y coordinates into a combined X,Y linspaces, respectively
     # Note that the points go from TE to LE via upper surface and then LE to TE via lower surface (Selig format).
     # Clip the first index of each upper coordinates arrays to prevent doubling the LE point before flipping.
-    X = np.concatenate([np.flip(x_upper[1:]), x_lower]);
-    Y = np.concatenate([np.flip(y_upper[1:]), y_lower]);
+    X = np.concatenate([np.flip(x_upper[1:]), x_lower])
+    Y = np.concatenate([np.flip(y_upper[1:]), y_lower])
 
     # Normalize X to be 0 to 1
     x_min = np.min(X)
@@ -128,12 +130,12 @@ def naca4gen(NACA_dig, x_axis):
     # Reverse the fully assembled Selig-ordered array to get reverse Selig:
     # TE -> lower surface -> LE -> upper surface -> TE (clockwise), matching the
     # traversal direction established for the VPM sign convention.
-    X = np.flip(X);
-    Y = np.flip(Y);
+    X = np.flip(X)
+    Y = np.flip(Y)
 
     # Combine combined X,Y coordinate linspaces into 2N-1 x 2 matrix
-    XY_coords = np.column_stack((X,Y));
-    return XY_coords;
+    XY_coords = np.column_stack((X,Y))
+    return XY_coords
 
 def save_coords_decision(NACA_dig, XY_coords):
     # Before writing coordinate points to .dat file, check if dedicated folder exists to avoid conflicts
@@ -146,10 +148,10 @@ def save_coords_decision(NACA_dig, XY_coords):
             if choice == 'Y':
                 # Build filename and path. Example format: "NACA_4412_N100.dat" would be written to saved_airfoils_coords
                 
-                code = "";
+                code = ""
                 if NACA_dig // 100 == 0:
                     code = "00"
-                code+= str(NACA_dig);
+                code+= str(NACA_dig)
                 
                 N = int(0.5*(len(XY_coords) + 1))
 
@@ -210,15 +212,15 @@ def get_mesh_param():
             if choice == 'Y':
                 # Return chordwise point count and total surface point count
                 # Inform user of their chosen number of chordwise points and how many coordinate points generated by plotter
-                print(f"Proceeding to airfoil plotting with {N} chordwise points and {panel_ct} total surface points...");
-                return N;
+                print(f"Proceeding to airfoil plotting with {N} chordwise points and {panel_ct} total surface points...")
+                return N
 
             elif choice == 'N':
-                print("---");
-                break;
+                print("---")
+                break
 
             else:
-                print("Invalid choice. Please enter Y or N.");
+                print("Invalid choice. Please enter Y or N.")
 
 def get_naca4_input():
     while True:
@@ -253,7 +255,7 @@ def get_naca4_input():
         NACA_dig = int(raw)
         print(f"Your airfoil is: NACA {raw}")
         print("---")
-        return NACA_dig;
+        return NACA_dig
 
 if __name__ == "__main__":
     naca_gen_script()
