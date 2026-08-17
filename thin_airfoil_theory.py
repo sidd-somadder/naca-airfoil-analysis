@@ -6,7 +6,7 @@
 
 import numpy as np;
 import scipy.integrate as scpi;
-from post_processing import plot_coeffs, export_tat_results;
+from post_processing import export_tat_results;
 
 
 def run_tat_solver(input_file_name, alphas):
@@ -35,8 +35,8 @@ def run_tat_solver(input_file_name, alphas):
     c_mLE = coeffs[:,1];
     c_mqc = coeffs[:,2];
 
-    printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
-    plot_coeffs(alphas, cL_TAT=c_l, cmLE_TAT=c_mLE, cmqc_TAT=c_mqc);
+    # printvals(alphas, c_l, c_mLE, c_mqc, angle_zero_lift);
+    # plot_coeffs(alphas, cL_TAT=c_l, cmLE_TAT=c_mLE, cmqc_TAT=c_mqc);
     export_tat_results(alphas, coeffs, input_file_name, angle_zero_lift);
 
     return c_l, c_mLE, c_mqc;
