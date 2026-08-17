@@ -55,7 +55,7 @@ def get_geom_params(geom_points):
 
     return phi, beta, p_lengths, midpoints
 
-# Make influence coefficient using collocation points, panel nodes, panel lengths, and tangential angles,
+# Make influence coefficient using collocation points, panel nodes, panel lengths, and tangential angles.
 def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
     """
     Assemble the normal (K) and tangential (L) influence coefficient matrices.
@@ -107,7 +107,7 @@ def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
                 L[i,j] = (C_l/2) * log_term
 
                 if E != 0:
-                    # Add arctan term if E is nonzero.
+                    # Add arctan term only if E is nonzero.
                     atan_term = np.arctan2((s_j + A), E) - np.arctan2(A, E)
                     K[i,j] += ((D_k - A*C_k)/E)*atan_term
                     L[i,j] += ((D_l - A*C_l)/E)*atan_term
