@@ -19,20 +19,20 @@ from post_processing import plot_coeffs, export_VPM_pressure;
 def run_xfoil_solver(dat_path, angle_param, n_panels, viscous=False):
     xf = run_xfoil_polar(dat_path, angle_param, n_panels, viscous=viscous);
 
-    alpha_xf = xf["alpha"].to_numpy();
-    cl_xf    = xf["CL"].to_numpy();
-    cmqc_xf    = xf["CM"].to_numpy();
-    cmLE_xf = cmqc_xf - 0.25*cl_xf;
-
     if viscous:
-        title = 'XFOIL (viscous) - NACA 0012'
-        plot_coeffs(alpha_xf, cL_xfV=cl_xf, cmLE_xfV=cmLE_xf, cmqc_xfV=cmqc_xf, title=title);
-    else: 
-        title = 'XFOIL (inviscid) - NACA 0012'
-        plot_coeffs(alpha_xf, cL_xf=cl_xf, cmLE_xf=cmLE_xf, cmqc_xf=cmqc_xf, title=title);
+        alpha_xfVisc = xf["alpha"].to_numpy();
+        cl_xfVisc    = xf["CL"].to_numpy();
+        cmqc_xfVisc    = xf["CM"].to_numpy();
+        cmLE_xfVisc = cmqc_xfVisc - 0.25*cl_xfVisc;
+        
+        return cl_xfVisc, cmLE_xfVisc, cmqc_xfVisc, alpha_xfVisc;   
+    else:      
+        alpha_xf = xf["alpha"].to_numpy();
+        cl_xf    = xf["CL"].to_numpy();
+        cmqc_xf    = xf["CM"].to_numpy();
+        cmLE_xf = cmqc_xf - 0.25*cl_xf;
 
-    return cl_xf, cmLE_xf, cmqc_xf;
-
+        return cl_xf, cmLE_xf, cmqc_xf, alpha_xf;
 
 def find_xfoil():
     explicit = os.environ.get("XFOIL_PATH");
@@ -76,6 +76,8 @@ def run_xfoil_polar(dat_path, alphas, n_panels=None, viscous=False, Re=1e6,
             cmds.append(f"N {n_panels}");
             cmds.append("");
             cmds.append("");
+
+        cmds.append("ITER 100");
 
         cmds.append("OPER");
         if viscous:
