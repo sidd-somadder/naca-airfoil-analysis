@@ -7,7 +7,7 @@ Constant Strength Vortex Method is used here; Future implementations will includ
 
 import numpy as np
 from panel_geometry import get_geom_params, compute_KL_inf_matrices
-from post_processing import export_VPM_pressure
+from post_processing import export_VPM_pressure, export_VPM_coeffs
 
 def run_cvpm_solver(geom_points, alphas, input_file_name):
     """
@@ -68,6 +68,7 @@ def run_cvpm_solver(geom_points, alphas, input_file_name):
 
     # Use pressure and local gamma strength distribution to derive key coefficients.
     cL_KJ, cL_P, cmLE, cmqc = VPM_get_coeffs(gamma_distribution, panel_lengths, coeff_P_matrix, beta, alphas_rad, midpoints, invP)
+    export_VPM_coeffs(alphas, cL_KJ, cL_P, cmLE, cmqc, input_file_name);
 
     # Return coefficients of lift (Kutta-Joukowski & Pressure derived), moments, pressure, and condition number
     return cL_KJ, cL_P, cmLE, cmqc, coeff_P_matrix, condition_num, midpoints
