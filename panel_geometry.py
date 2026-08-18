@@ -5,29 +5,42 @@ tangential angle (phi), outwards normal angle (beta), panel lengths (S), panel m
 Computes K and L normal and tangential geometric influence matrices based on panel geometry.
 Math derivation found in accompanying report.
 
-Handles loading coordinates into a N x 2 matrix from saved_coordinates folder with specified name.
-Does not format from provided .dat file: only converts raw struture in file into coordinate array.
+Handles loading coordinates into a M x 2 matrix from saved_coordinates folder with specified name.
+Does not format from provided .dat file: only converts raw structure in file into coordinate array.
 """
 
 import numpy as np
 import os
 
-# Using coordinate points, get the tangential angle and length of each panel.
 def get_geom_params(geom_points):
-    N = len(geom_points)
+    """
+    Computes panel geometric parameters from a set of airfoil surface coordinates.
 
-    # For N panels, there are N angles.
-    phi = np.zeros(N)
-    p_lengths = np.zeros(N)
-    midpoints = np.zeros((N,2))
+    Inputs:
+    Set of coordinates retrieved from .dat file (geom_points, size M x 2) in reverse-selig panel order.
+    Panels are formed between consecutive nodes, with the final panel wrapping from the last node back to the first.
 
-    for k in range(N):
+    Outputs:
+    Tangential angle (phi) of each panel measured from the x-axis, in RADIANS (size M)
+    Outwards normal angle (beta) of each panel, defined as phi + pi/2, in RADIANS (size M)
+    Panel lengths (p_lengths) computed by distance formula between adjacent nodes (size M)
+    Panel midpoint coordinates (midpoints) used as collocation points for the solver (size M x 2)
+    """
+
+    M = len(geom_points)
+
+    # For M panels, there are M angles.
+    phi = np.zeros(M)
+    p_lengths = np.zeros(M)
+    midpoints = np.zeros((M,2))
+
+    for k in range(M):
         # Get kth panel node coordinates.
         x_k = geom_points[k,0]
         z_k = geom_points[k,1]
 
-        # Get k+1th panel node coordinates; loop back to first node if the kth node is the Nth node.
-        if (k+1) == N:
+        # Get k+1th panel node coordinates; loop back to first node if the kth node is the Mth node.
+        if (k+1) == M:
             x_kp1 = geom_points[0,0]
             z_kp1 = geom_points[0,1]        
         else:
@@ -55,7 +68,6 @@ def get_geom_params(geom_points):
 
     return phi, beta, p_lengths, midpoints
 
-# Make influence coefficient using collocation points, panel nodes, panel lengths, and tangential angles.
 def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
     """
     Assemble the normal (K) and tangential (L) influence coefficient matrices.
@@ -64,21 +76,21 @@ def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
     the accompanying report. Variable names A, B, C, D, E correspond to the
     intermediate terms defined there.
 
-    Returns K, L: each (N, N), where N is the number of panels.
+    Returns K, L: each (M, M), where M is the number of panels.
     """
-    N = len(phi)
+    M = len(phi)
     
-    # Initialize square matrix with N equations and N local gammas
+    # Initialize square matrix with M equations and M local gammas
     # K is the normal influence matrix used for the boundary condition
-    K = np.zeros((N,N))
+    K = np.zeros((M,M))
     # L is the tangential influence matrix used to find the tangential velocity per panel
-    L = np.zeros((N,N))
+    L = np.zeros((M,M))
 
-    for i in range(N):
+    for i in range(M):
         # Retrieve ith collocation point coordinates
         x_i = midpoints[i, 0]
         z_i = midpoints[i, 1]
-        for j in range(N):
+        for j in range(M):
 
             # Retrieve jth collocation point coordinates
             x_j = geom_pts[j,0]
@@ -119,9 +131,19 @@ def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
                 L[i,j] = 0
     return K, L
 
-# Reads a raw .dat coordinate file from the saved_airfoil_coords folder and returns an Nx2 numpy array of (x, y) points
-# This is a raw parse only, assume in reverse Selig format.
 def load_dat_coordinates(filename):
+    """
+    Reads a .dat coordinate file from the saved_airfoil_coords folder into a coordinate array.
+
+    Inputs:
+    Filename (filename) as found in the saved_airfoil_coords folder, including the .dat extension.
+
+    Outputs:
+    Coordinate array (coords) of surface points in the order written in the file (size M x 2).
+    Note: This is a raw parse only. Header lines and any row that is not exactly two floats are skipped.
+    Coordinates are assumed to already be in reverse-selig order; no reordering is performed.
+    """
+
     input_dir = os.path.join(os.path.dirname(__file__), "saved_airfoil_coords")
     filepath = os.path.join(input_dir, filename)
 

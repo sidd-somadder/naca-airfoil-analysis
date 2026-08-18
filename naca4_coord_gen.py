@@ -11,9 +11,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-# This method handles the entire process of airfoil generation from user input to plotting & exporting.
-# if naca4_coord_gen.py is called from another file, call THIS method for generation.
 def naca_gen_script():
+    """
+    Interactive entry point for the NACA 4-digit airfoil coordinate generator.
+
+    Prompts the user for a NACA 4-digit code and a chordwise point count, generates the
+    surface coordinates using half-cosine spacing, displays the resulting geometry, and
+    optionally writes the coordinates to a .dat file in the saved_airfoil_coords folder.
+
+    Files are written with the naming convention NACA_XXXX_N###.dat, which is the format
+    expected by airfoil_aerodynamic_analysis.py.
+    """
+
     # Collect NACA series airfoil from user input
     NACA_dig = get_naca4_input()
 
@@ -69,9 +78,21 @@ def naca_plot(NACA_dig, XY_coords):
     plt.show()
     print("---")
 
-# Method that generates upper and lower coordinates using mean camberline and thickness distribution equations
-# NACA digits and discretized x-axis array are inputs, M x 2 size coordinate matrix is output.
 def naca4gen(NACA_dig, x_axis):
+    """
+    Generates airfoil surface coordinates for a NACA 4-digit series airfoil.
+
+    Inputs:
+    NACA 4-digit code as an integer (NACA_dig), where digits encode max camber, max camber position, and thickness.
+    Discretized chordwise station array (x_axis) normalized from 0 to 1 (size N), typically half-cosine spaced.
+
+    Outputs:
+    Coordinate matrix (XY_coords) of airfoil surface points normalized to unit chord (size 2N-1 x 2).
+    Points are ordered in reverse-selig format: TE -> lower surface -> LE -> upper surface -> TE.
+    Note: The trailing edge is left OPEN. The first and last points are distinct and do not coincide.
+    Closure is handled by the vortex panel method in constant_vpm.py, not here.
+    """
+
     # For 4-digit airfoils, compute max camber (m), p (max camber location), and t (thickness) values in percentage chord
     m_dig = NACA_dig // 1000
     p_dig = ((NACA_dig % 1000) // 100)
