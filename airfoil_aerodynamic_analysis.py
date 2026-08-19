@@ -1,18 +1,33 @@
-# This is the master script which the user will interact with. The user will never need to open TAT, VPM, or XFOIL scripts.
-# The user will be able to select a saved airfoil coordinates file from the folder and choose to run an aerodynamic analysis
-# The master script will call all three scripts for results and plot the c_l, c_m,LE, and c_m,c/4 values against AOA.
-# The user can choose to save the results of all three scripts in the computation_results folder.
+"""
+This is the master script which the user will interact with. The user will never need to open TAT, VPM, or XFOIL scripts.
+The user will be able to select a saved airfoil coordinates file from the folder and choose to run an aerodynamic analysis
+The master script will call all three scripts for results and plot the c_l, c_m,LE, and c_m,c/4 values against AOA.
+The user can choose to save the results of all three scripts in the computation_results folder.
+"""
 
 from thin_airfoil_theory import run_tat_solver
 from constant_vpm import run_cvpm_solver
-from xfoil_wrapper import run_xfoil_solver;
+from xfoil_wrapper import run_xfoil_solver, run_xfoil_cp
 from panel_geometry import load_dat_coordinates
-from post_processing import plot_coeffs, plot_cl_with_residuals;
-import numpy as np;
-import os;
+from post_processing import plot_coeffs, plot_cl_with_residuals, plot_cp_comparison
+import pandas as pd
+import numpy as np
+import os
 
 # Function used to get user input for desired angle of attack mesh
 def get_angle_params():
+    """
+    Prompts user via terminal to define the angle of attack sweep used by all three solvers.
+
+    Inputs: 
+    None. Lower bound, upper bound, and step size is determined via user input in terminal.
+    Invalid user inputs fall back to -5, 15, and 1 respectively.
+
+    Outputs: 
+    Angle of attack sweep (size N) in DEGREES. Includes upper and lower bound values in array.
+    Re-prompts from the start if user declines during confirmation.
+    """
+
     print("-" * 10)
     print("Angle of Attack Range Configuration")
     print("-" * 3)
@@ -25,14 +40,14 @@ def get_angle_params():
     try:
         inf = float(input("  Lower bound in whole degrees (e.g. -5): "))
     except ValueError:
-        print("Invalid input. Using -5 deg. as default lower bound");
-        inf = float(-5);
+        print("Invalid input. Using -5 deg. as default lower bound")
+        inf = float(-5)
 
     try:
         sup = float(input("  Upper bound  (e.g. 15): "))
     except ValueError:
-        print("Invalid input. Using 15 deg. as default upper bound");
-        sup = float(15);
+        print("Invalid input. Using 15 deg. as default upper bound")
+        sup = float(15)
 
     # User determines step-size in degrees
     print()
@@ -47,7 +62,7 @@ def get_angle_params():
         step = float(input("  Step size in degrees (e.g. 1, 0.5, 0.25): "))
     except ValueError:
         print("Invalid input. Using default 1 degree step size.")
-        step = 1.0;
+        step = 1.0
 
     # Inform user of their desired range. Confirm with user. 
     while True:
@@ -58,48 +73,65 @@ def get_angle_params():
             return np.arange(inf, sup + step, step)
         
         elif choice == 'N':
-            # If no, ask user for angle parameters number via recursive function call;
-            return get_angle_params();     
+            # If no, ask user for angle parameters number via recursive function call
+            return get_angle_params()
         else:
-            print("Invalid choice. Please enter Y or N.");
+            print("Invalid choice. Please enter Y or N.")
 
-angle_param = get_angle_params();
+if __name__ == "__main__":
+    angle_param = get_angle_params()
 
-# Fill THIS array with filenames for the master script to loop through/
-filenames = ["NACA_0012_N100.dat",
-             "NACA_2412_N100.dat"];
+    # Fill THIS array with filenames for the master script to loop through
+    filenames = ["NACA_0012_N100.dat",
+                "NACA_2412_N100.dat"]
 
-# Initialize condition number array. 
-cond_nums = np.zeros(len(filenames));
+    # Initialize condition number array. 
+    cond_nums = np.zeros(len(filenames))
 
-for k, file in enumerate(filenames):
-    dat_path = os.path.join(os.path.dirname(__file__), "saved_airfoil_coords", file);
+    for k, file in enumerate(filenames):
+        dat_path = os.path.join(os.path.dirname(__file__), "saved_airfoil_coords", file)
 
-    code_name = file.split("_")[1];
-    panel_count = 2  *int(((file.split("_")[2]).split(".")[0])[1:]) - 1;
+        code_name = file.split("_")[1]
 
-    title_name = f"NACA {code_name}, {panel_count} panels"
+        # Extract chordwise point count from file name and get panel count.
+        panel_count = 2  *int(((file.split("_")[2]).split(".")[0])[1:]) - 1
 
-    # Call from-scratch VPM solver
-    geom_points = load_dat_coordinates(file);
-    cL_KJ, cL_P, cmLE_VPM, cmqc_VPM, coeff_P_matrix, cond = run_cvpm_solver(geom_points, angle_param, file);
+        title_name = f"NACA {code_name}, {panel_count} panels"
 
-    cond_nums[k] = cond;
+        # Call from-scratch VPM solver
+        geom_points = load_dat_coordinates(file)
+        cL_KJ, cL_P, cmLE_VPM, cmqc_VPM, coeff_P_matrix, cond, midpoints = run_cvpm_solver(geom_points, angle_param, file)
 
-    # XFOIL on the same file
-    cl_xf, cmLE_xf, cmqc_xf, a_xf = run_xfoil_solver(dat_path, angle_param, len(geom_points));
-    cl_xfVisc, cmLE_xfVisc, cmqc_xfVisc, a_xfVisc = run_xfoil_solver(dat_path, angle_param, len(geom_points), viscous=True);
-    cl_tat, cmLE_tat, cmqc_tat = run_tat_solver(file, angle_param);
+        cond_nums[k] = cond
 
-    curves = {
-    'Kutta-Joukowski':      cL_KJ,
-    'Pressure Integration': cL_P,
-    'XFOIL, Inviscid':      cl_xf,
-    }
+        # XFOIL on the same file
+        cl_xf, cmLE_xf, cmqc_xf, a_xf = run_xfoil_solver(dat_path, angle_param, len(geom_points))
+        cl_xfVisc, cmLE_xfVisc, cmqc_xfVisc, a_xfVisc = run_xfoil_solver(dat_path, angle_param, len(geom_points), viscous=True)
+        cl_tat, cmLE_tat, cmqc_tat = run_tat_solver(file, angle_param)
 
-    plot_coeffs(angle_param, a_xfVisc=a_xfVisc, cL_TAT=cl_tat, cL_KJ=cL_KJ, cL_P=cL_P, cL_xf=cl_xf, cL_xfVisc=cl_xfVisc, title=fr'$C_L$ vs. $\alpha$ ({title_name})')
-    plot_coeffs(angle_param, a_xfVisc=a_xfVisc, cmLE_TAT=cmLE_tat, cmLE_VPM=cmLE_VPM, cmLE_xf=cmLE_xf, title=rf'$C_{{M,LE}}$ vs. $\alpha$ ({title_name})', moment=True)
-    plot_coeffs(angle_param, a_xfVisc=a_xfVisc, cmqc_TAT=cmqc_tat, cmqc_VPM=cmqc_VPM, cmqc_xf=cmqc_xf, title=rf'$C_{{M,c/4}}$  vs. $\alpha$ ({title_name})', moment=True)
-    plot_cl_with_residuals(angle_param, curves, ref_label='XFOIL, Inviscid', airfoil_name=code_name, panel_count=panel_count);
+        # Run XFOIL subprocess for pressure distribution to compare VPM pressure.
+        title = fr"$C_P$ VPM vs. XFOIL Inviscid (NACA {code_name}, $\alpha$ = 5.0°, {panel_count} panels)"
+        xf_cp = run_xfoil_cp(dat_path, alpha=5.0, n_panels=len(geom_points))
+        plot_cp_comparison(coeff_P_matrix, midpoints, angle_param, 5.0, xf_cp, title=title)
 
-print(f"Condition Number: {cond_nums}");
+        curves = {
+        'Kutta-Joukowski':      cL_KJ,
+        'Pressure Integration': cL_P,
+        'XFOIL, Inviscid':      cl_xf,
+        }
+
+        # Plot lift, moment, and XFOIL residual values.
+        plot_coeffs(angle_param, a_xfVisc=a_xfVisc, cL_TAT=cl_tat, cL_KJ=cL_KJ, cL_P=cL_P, cL_xf=cl_xf, cL_xfVisc=cl_xfVisc, title=fr'$C_L$ vs. $\alpha$ ({title_name})')
+        plot_coeffs(angle_param, a_xfVisc=a_xfVisc, cmLE_TAT=cmLE_tat, cmLE_VPM=cmLE_VPM, cmLE_xf=cmLE_xf, title=rf'$C_{{M,LE}}$ vs. $\alpha$ ({title_name})', moment=True)
+        plot_coeffs(angle_param, a_xfVisc=a_xfVisc, cmqc_TAT=cmqc_tat, cmqc_VPM=cmqc_VPM, cmqc_xf=cmqc_xf, title=rf'$C_{{M,c/4}}$  vs. $\alpha$ ({title_name})', moment=True)
+        plot_cl_with_residuals(angle_param, curves, ref_label='XFOIL, Inviscid', airfoil_name=code_name, panel_count=panel_count)
+
+    # Export condition number array for all airfoils that the script is ran on.
+    cond_df = pd.DataFrame({
+        "airfoil": [f.replace(".dat", "") for f in filenames],
+        "panels": [2*int(f.split("_")[2].split(".")[0][1:]) - 1 for f in filenames],
+        "cond_K_solve": cond_nums
+    })
+    cond_path = os.path.join(os.path.dirname(__file__), "computation_results", "condition_numbers.csv")
+    cond_df.to_csv(cond_path, index=False, float_format="%.4e")
+    print(f"Condition numbers exported: {cond_path}")
