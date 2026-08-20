@@ -56,10 +56,7 @@ def naca_plot(NACA_dig, XY_coords):
 
     panel_ct = len(XY_coords)
 
-    code = ""
-    if NACA_dig // 100 == 0:
-        code = "00"
-    code+= str(NACA_dig)
+    code = f"{NACA_dig:04d}"
 
     # Plot airfoil geometry:
     plt.figure(figsize=(10, 4))
@@ -169,10 +166,7 @@ def save_coords_decision(NACA_dig, XY_coords):
             if choice == 'Y':
                 # Build filename and path. Example format: "NACA_4412_N100.dat" would be written to saved_airfoils_coords
                 
-                code = ""
-                if NACA_dig // 100 == 0:
-                    code = "00"
-                code+= str(NACA_dig)
+                code = f"{NACA_dig:04d}"
                 
                 N = int(0.5*(len(XY_coords) + 1))
 
