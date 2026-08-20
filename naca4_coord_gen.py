@@ -261,8 +261,8 @@ def get_naca4_input():
 
         # first two digits must be both zero or both nonzero
         if (m_dig == 0) != (p_dig == 0):
-            print(f"Invalid input: first two digits must be both zero (symmetric) or both nonzero (cambered).")
-            print(f"  You entered m={m_dig}, p={p_dig}, one is zero and the other is not.")
+            print("Invalid input: first two digits must be both zero (symmetric) or both nonzero (cambered).")
+            print(f"You entered m={m_dig}, p={p_dig}, one is zero and the other is not.")
             print("---")
             continue
 
