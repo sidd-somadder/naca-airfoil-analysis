@@ -34,46 +34,17 @@ Implementing the Neumann condition produced circulation in agreement with XFOIL 
 
 **Decision:** A singular value decomposition (SVD) was run on the K geometric influence matrix used in solving for vortex strength distribution.
 
-**Reasoning:** A smoothing algorithm was considered first and rejected, since it would remove information about the actual behaviour of the solved vortex strength, hence was rejected.
+**Reasoning:** A smoothing algorithm was considered first and rejected, since it would remove information about the actual behaviour of the solved vortex strength.
 
 Running SVD on the K matrix before implementing the Kutta Condition yielded a singular matrix, meaning there was no unique solution. Once the Kutta condition was implemented, the matrix was no longer singular, making it solvable.
 
-With the Kutta condition applied, cond(K) grows in proportion to $N^2$. As N increases, the system increasingly fails to constrain the family of solutions where the vortex strength alternates sign from panel to panel. These alternating values cancel when summed along the surface, so lift remains accurate, but not at each individual panel, hence the sawtooth pattern.
+With the Kutta condition applied, cond(K) grows in proportion to $N^2$. As N increases, the system increasingly fails to constrain the family of solutions where the vortex strength alternates sign from panel to panel. These alternating values cancel when summed along the surface, so lift remains accurate, but no cancellation occurs at each individual panel, which is what produces the sawtooth pattern.
 
 This confirms the oscillation is a property of the constant-strength formulation rather than an implementation error, and that lift results remain usable while local pressure values do not.
 
 ---
 
-## 3. Two-way $C_L$ Calculation 
-
-**Issue:** The pressure distribution had no independent check for accuracy even if the oscillatory pattern was a consequence of ill-conditioning as discussed in #2.
-
-**Decision:** $C_L$ was computed in two ways from the same solved $\gamma$ vector, (1) integrating pressure across the upper/lower surface panels, and (2) summing the local vortex strength across all panels, and then applying the Kutta-Joukowski theorem.
-
-**Reasoning:** The two algorithms utilize the same circulation solution in different ways to derive the quantity. Hence, their agreement would verify the pressure distribution provided that $C_L$ computed from Kutta-Joukowski agrees with XFOIL Inviscid results. 
-
-In practice, the two quantities agree to within 0.01 across the angle sweep, greatest at $\alpha = 20 \degree$, and tends to zero as $\alpha \rightarrow 0 \degree$.
-
-Note that due to panel masking as discussed in decision entry #6, the two algorithms use slightly different panel sets. Hence, a small residual is expected rather than being indicative of implementation error.
-
----
-
-## 4. Half Cosine Spacing
-
-**Issue:** The NACA airfoil thickness function has a $\sqrt{x}$ term, and so an infinite slope at the leading edge.
-
-**Decision:** Half cosine spacing was used over uniform spacing, clustering panels at LE and TE.
-
-**Reasoning:** 
-Since the airfoil shape changes the greatest at the leading edge and trailing edge, discretizing such that the geometry is more accurate and precise at those locations is preferred. Hence, half-cosine spacing clusters panels at these two locations while uniform does not.
-
-A measured consequence is that the first tangential angle for the NACA 0012 (199 panels) case is ~85° with half-cosine spacing while ~60° with uniform spacing. This is a result of the former placing the next panel node at about 0.025% of chord length while uniform places it at about 1.0%.
-
-Notably, uniform spacing yields a slightly lower condition number (6.1e+3 vs 7.0e+3), so this is a geometric discretization issue rather than a conditioning problem as seen in #2.
-
----
-
-## 5. Open Trailing Edge
+## 3. Open Trailing Edge
 
 **Issue:** The standard NACA thickness equation produced a nonzero thickness at $x/c = 1$, so the generated airfoils have blunt trailing edges (TE) by construction.  
 
@@ -91,6 +62,35 @@ Since the closure panel is a mathematical artifact used to create a closed loop 
 
 ---
 
+## 4. Two-way $C_L$ Calculation 
+
+**Issue:** The pressure distribution had no independent check for accuracy even if the oscillatory pattern was a consequence of ill-conditioning as discussed in #2.
+
+**Decision:** $C_L$ was computed in two ways from the same solved $\gamma$ vector, (1) integrating pressure across the upper/lower surface panels, and (2) summing the local vortex strength across all panels, and then applying the Kutta-Joukowski theorem.
+
+**Reasoning:** The two algorithms utilize the same circulation solution in different ways to derive the quantity. Hence, their agreement would verify the pressure distribution provided that $C_L$ computed from Kutta-Joukowski agrees with XFOIL Inviscid results. 
+
+In practice, the two quantities agreed to within 0.01 across the angle sweep, greatest at $\alpha = 20 \degree$, and tended to zero as $\alpha \rightarrow 0 \degree$.
+
+Note that due to panel masking as discussed in decision entry #6, the two algorithms use slightly different panel sets. Hence, a small residual is expected rather than being indicative of implementation error.
+
+---
+
+## 5. Half Cosine Spacing
+
+**Issue:** The NACA airfoil thickness function has a $\sqrt{x}$ term, and so an infinite slope at the leading edge.
+
+**Decision:** Half cosine spacing was used over uniform spacing, clustering panels at LE and TE.
+
+**Reasoning:** 
+Since the airfoil shape changes the greatest at the leading edge and trailing edge, discretizing such that the geometry is more accurate and precise at those locations is preferred. Hence, half-cosine spacing clusters panels at these two locations while uniform does not.
+
+A measured consequence is that the first tangential angle for the NACA 0012 (199 panels) case is ~85° with half-cosine spacing while ~60° with uniform spacing. This is a result of the former placing the next panel node at about 0.025% of chord length while uniform places it at about 1.0%.
+
+Notably, uniform spacing yields a slightly lower condition number (6.1e+3 vs 7.0e+3), so this is a geometric discretization issue rather than a conditioning problem as seen in #2.
+
+---
+
 ## 6. TE-Adjacent Panel Masking
 
 **Issue:** Panels indexed 0, M-2, and M-1 produced extremely high $C_P$ values far outside physical range. Since $C_n$ and $C_a$ are sums of $C_P$ weighted by panel length, a few values far outside physical range corrupt the whole integral.
@@ -101,7 +101,7 @@ Since the closure panel is a mathematical artifact used to create a closed loop 
 
 These panels were masked since they are the shortest panels produced by cosine spacing and sit adjacent to the open trailing edge.
 
-A consequence of this decision is that the two different $C_L$ algorithms use different panel sets, which is addressed in decision #3.
+A consequence of this decision is that the two different $C_L$ algorithms use different panel sets, which is addressed in decisions log #4.
 
 ---
 
@@ -140,7 +140,7 @@ An early version using standard Selig ordering produced a $C_P$ distribution wit
 **Decision:** Constant-strength formulation was chosen for the panel method.
 
 **Reasoning:** 
-Discrete Vortex Method places vortex points along the mean camber line, which uses the same zero-thickness assumption of thin airfoil theory. Hence, it would be a numerical approximation of the analytic solution rather than at a different fidelity level. The aim of this project requires the latter.
+Discrete Vortex Method places vortex points along the mean camber line, which uses the same zero-thickness assumption of thin airfoil theory. Hence, it would be a numerical approximation of the analytic solution rather than a physical model at a different fidelity level. The aim of this project requires the latter.
 
 Constant-strength places panels on the actual upper and lower surfaces of the airfoil, which takes the thickness into consideration, and hence allows us to distinguish airfoils by actual geometry rather than analytic definition.
 
