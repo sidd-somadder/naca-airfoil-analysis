@@ -122,7 +122,8 @@ naca-airfoil-analysis/
 [Katz & Plotkin]
 [Anderson]
 [Abbott & von Doenhoff]
-[Drela & Giles]
+
+- Drela, M., XFOIL User Primer. web.mit.edu/drela/Public/web/xfoil/xfoil_doc.txt
 
 ---
 
