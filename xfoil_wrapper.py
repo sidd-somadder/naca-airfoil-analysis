@@ -2,7 +2,7 @@
 Drives XFOIL 6.99 via subprocess and parses its output, providing an independent
 reference for validating the VPM and TAT solvers.
 
-XFOIL is NOT bundled with this repo (GPL, platform-specific). Install from
+XFOIL is NOT included with this repo (GPL, platform-specific). Install from
 http://web.mit.edu/drela/Public/web/xfoil/ and either place the executable on
 PATH or set the XFOIL_PATH environment variable.
 """
