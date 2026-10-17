@@ -103,8 +103,9 @@ naca-airfoil-analysis/
 
 ## Documentation
 
-- [`DECISIONS.md`](DECISIONS.md) — [one line]
-- [Report PDF](path) — [one line]
+- [`DECISIONS.md`](DECISIONS.md) — A logbook of key decisions made during the project development process.
+- [Derivation PDF](docs/Constant_Strength_Vortex_Panel_Method_Mathematics.pdf) — A document detailing the mathematics behind the constant vortex panel method formulation.
+- [Handwritten Notes](docs/Constant%20Vortex%20Panel%20Method%20Handwritten%20Notes.pdf) — Scanned images of handwritten notebook derivations for those interested. Any major issues have been addressed in the typed-up PDF.
 
 ---
 
@@ -119,11 +120,10 @@ naca-airfoil-analysis/
 
 ## References
 
-[Katz & Plotkin]
-[Anderson]
-[Abbott & von Doenhoff]
-
-- Drela, M., XFOIL User Primer. web.mit.edu/drela/Public/web/xfoil/xfoil_doc.txt
+1. J. Katz and A. Plotkin, *Low-Speed Aerodynamics*, 2nd ed. Cambridge, U.K.: Cambridge University Press, 2001.
+2. J. D. Anderson, Jr. and C. P. Cadou, *Fundamentals of Aerodynamics*, 7th ed. New York, NY: McGraw-Hill, 2024.
+3. I. H. Abbott and A. E. von Doenhoff, *Theory of Wing Sections: Including a Summary of Airfoil Data*. New York, NY: Dover Publications, 1959.
+4. M. Drela and H. Youngren, "XFOIL 6.9 User Primer," Massachusetts Institute of Technology, Cambridge, MA, 2001. [Online]. Available: https://web.mit.edu/drela/Public/web/xfoil/xfoil_doc.txt (accessed Aug. 17, 2026).
 
 ---
 
