@@ -27,7 +27,7 @@ def run_cvpm_solver(geom_points, alphas, input_file_name):
     """
 
     # Retrieve tangential angles (phi), panel lengths, and panel midpoints (collocation points)
-    phi, beta, panel_lengths, midpoints = get_geom_params(geom_points)
+    phi, delta, panel_lengths, midpoints = get_geom_params(geom_points)
 
     # Convert angle of attack to radians
     alphas_rad = alphas * np.pi/180
@@ -55,41 +55,41 @@ def run_cvpm_solver(geom_points, alphas, input_file_name):
     for k in range(N):
         # For each fixed angle of attack, fill the RHS vector where each entry corresponds to each panel.
         # This loop is ran for all angles of attack, resulting in k sets of local vortex strengths.
-        RHS = V2DC_RHS_vec(alphas_rad[k], beta)
+        RHS = V2DC_RHS_vec(alphas_rad[k], delta)
 
         # The kth column of gamma_distribution corresponds to the kth angle of attack in alphas_rad
         gamma_distribution[:,k] = np.linalg.solve(K_solve, RHS)
 
     # Calculate & export pressure distribution
-    coeff_P_matrix = V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L)
+    coeff_P_matrix = V2DC_pressure_distribution(alphas_rad, delta, gamma_distribution, L)
     export_VPM_pressure(coeff_P_matrix, midpoints, alphas, input_file_name, method='CVPM')
 
     invP = invalid_panel_indices(M)
 
     # Use pressure and local gamma strength distribution to derive key coefficients.
-    cL_KJ, cL_P, cmLE, cmqc = VPM_get_coeffs(gamma_distribution, panel_lengths, coeff_P_matrix, beta, alphas_rad, midpoints, invP)
+    cL_KJ, cL_P, cmLE, cmqc = VPM_get_coeffs(gamma_distribution, panel_lengths, coeff_P_matrix, delta, alphas_rad, midpoints, invP)
     export_VPM_coeffs(alphas, cL_KJ, cL_P, cmLE, cmqc, input_file_name);
 
     # Return coefficients of lift (Kutta-Joukowski & Pressure derived), moments, pressure, and condition number
     return cL_KJ, cL_P, cmLE, cmqc, coeff_P_matrix, condition_num, midpoints
 
-def V2DC_RHS_vec(alpha, beta):
+def V2DC_RHS_vec(alpha, delta):
     """
     Returns the RHS for the Kg = RHS matrix equation used to calculate local vortex strength. Helper method for main solver.
 
     Inputs:
     Specified Angle of Attack in RADIANS (alpha)
-    Outwards normal angle (beta) for every panel in reverse-selig panel order (size M)
+    Outwards normal angle (delta) for every panel in reverse-selig panel order (size M)
 
     Outputs:
     RHS vector for the Kg = RHS matrix equation with the last entry replaced for the Kutta condition (size M). 
     """
 
     # If there are M outward normal angles, then there are M panels, and therefore the RHS has M elements
-    RHS = np.zeros_like(beta)
+    RHS = np.zeros_like(delta)
 
-    # (RHS)_i = 2pi * V_inf * cos(beta - alpha)
-    RHS = 2 * np.pi * np.cos(beta - alpha)
+    # (RHS)_i = 2pi * V_inf * cos(delta - alpha)
+    RHS = 2 * np.pi * np.cos(delta - alpha)
 
     # Last row is overwritten by the Kutta condition; last row RHS is rewritten to be 0
     RHS[-1] = 0.0
@@ -97,13 +97,13 @@ def V2DC_RHS_vec(alpha, beta):
     # length M
     return RHS                         
 
-def V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L_matrix):
+def V2DC_pressure_distribution(alphas_rad, delta, gamma_distribution, L_matrix):
     """
     Returns coefficient of pressure distribution across each angle of attack and each panel in reverse-selig panel order.
 
     Inputs:
     Angle of Attack sweep (alphas_rad) in RADIANS (size N).
-    Outward normal angle (beta) for every panel in reverse-selig panel order (size M)
+    Outward normal angle (delta) for every panel in reverse-selig panel order (size M)
     Local vortex strength distribution (gamma distribution) across each panel across each angle of attack (size M x N)
     L tangential influence matrix (L_matrix) calculated from compute_KL_inf_matrices from panel_geometry.py (size M x M)
 
@@ -125,7 +125,7 @@ def V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L_matrix):
             for j in range(M):
                 sum_influence -= gamma_distribution[j, k]/(2*np.pi) * L_matrix[i, j]
             
-            V_tang[i, k] = np.sin(beta[i] - alphas_rad[k]) + sum_influence + gamma_distribution[i,k]/2
+            V_tang[i, k] = np.sin(delta[i] - alphas_rad[k]) + sum_influence + gamma_distribution[i,k]/2
 
     coeff_p = 1 - V_tang**2
     
@@ -136,7 +136,7 @@ def V2DC_pressure_distribution(alphas_rad, beta, gamma_distribution, L_matrix):
 def invalid_panel_indices(M):
     return [0, M-2, M-1]
 
-def VPM_get_coeffs(gamma_distribution, p_lengths, coeff_p, beta, alphas_rad, midpoints, invalid_panels=None):
+def VPM_get_coeffs(gamma_distribution, p_lengths, coeff_p, delta, alphas_rad, midpoints, invalid_panels=None):
     """
     Helper method. Uses local vortex strength, pressure, and geometric parameters to return lift and moment coefficients.
 
@@ -144,7 +144,7 @@ def VPM_get_coeffs(gamma_distribution, p_lengths, coeff_p, beta, alphas_rad, mid
     Local vortex strength distribution (gamma distribution) across each panel across each angle of attack (size M x N)
     Set of panel lengths (p_lengths) in reverse-selig panel order (size M)
     Coefficient of Pressure distribution (coeff_p) across each panel across each angle of attack (size M x N)
-    Outwards normal angle (beta) for every panel in reverse-selig panel order (size M)
+    Outwards normal angle (delta) for every panel in reverse-selig panel order (size M)
     Set of angle of attacks (alphas_rad) in RADIANS (size N)
     Set of panel midpoint coordinates in reverse-selig panel order (size M x 2)
     Array of masked indices (invalid_panels) to match masked panels used in pressure distribution matrix
@@ -178,11 +178,11 @@ def VPM_get_coeffs(gamma_distribution, p_lengths, coeff_p, beta, alphas_rad, mid
         # Pressure-based lift: only panels with a physically meaningful Cp.
         cp = coeff_p[cp_mask, k]
         s  = p_lengths[cp_mask]
-        b  = beta[cp_mask]
+        d  = delta[cp_mask]
 
         # Compute axial and normal force coefficients 
-        c_n = -(cp * s * np.sin(b)).sum()
-        c_a = -(cp * s * np.cos(b)).sum()
+        c_n = -(cp * s * np.sin(d)).sum()
+        c_a = -(cp * s * np.cos(d)).sum()
 
         c_l_P[k] = c_n * np.cos(alphas_rad[k]) - c_a * np.sin(alphas_rad[k])
 

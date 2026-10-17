@@ -63,10 +63,10 @@ def get_geom_params(geom_points):
         midpoints[k,:] = [x_m, z_m]
     
     # Define outwards normal angle from tangential angle
-    # The VPM Neumann boundary condition RHS is built from beta, not phi.
-    beta = phi + np.pi/2
+    # The VPM Neumann boundary condition RHS is built from delta - alpha
+    delta = phi + np.pi/2
 
-    return phi, beta, p_lengths, midpoints
+    return phi, delta, p_lengths, midpoints
 
 def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
     """
@@ -110,7 +110,8 @@ def compute_KL_inf_matrices(geom_pts, midpoints, S, phi):
             # Retrieve jth panel length
             s_j = S[j]
             
-            # Diagonal terms = 0
+            # Normal influence diagonal terms = 0
+            # Tangential influence diagonal terms handled separately
             if not (i == j):        
                 # Compute the logarithm terms for each resulting matrix entry 
                 log_term = np.log((s_j**2 + 2*A*s_j + B)/B)
