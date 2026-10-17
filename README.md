@@ -96,6 +96,7 @@ naca-airfoil-analysis/
 ├── post_processing.py                [exporting and plotting]
 ├── saved_airfoil_coords/             [saved airfoil .dat coordinates]
 ├── computation_results/              [saved coefficient .csv data]
+├── docs/                             [written reports and notes]
 └── figures/                          [figures used in report]
 ```
 
