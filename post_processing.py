@@ -187,8 +187,6 @@ def plot_cl_with_residuals(alphas, curves, ref_label, airfoil_name, panel_count)
     ax_bot.set_xlabel(r'$\alpha$ (°)')
     ax_bot.set_ylabel(rf'$\Delta C_L$ vs. {ref_label}')
     ax_bot.grid(True, linestyle=':', alpha=0.6)
-
-    plt.tight_layout()
     plt.show()
 
 def plot_cp_comparison(coeff_P_matrix, midpoints, alphas, alpha_target, xfoil_cp_df, title=None):
