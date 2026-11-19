@@ -105,6 +105,7 @@ naca-airfoil-analysis/
 ## Documentation
 
 - [`DECISIONS.md`](DECISIONS.md) — A logbook of key decisions made during the project development process.
+- [Technical Report](docs/Constant_Vortex_Panel_Method_Technical_Report.pdf) — A report briefly detailing the approach, methods, and issues throughout the project development. Discusses scope, future work, and limitations.
 - [Derivation PDF](docs/Constant_Strength_Vortex_Panel_Method_Mathematics.pdf) — A document detailing the mathematics behind the constant vortex panel method formulation.
 - [Handwritten Notes](docs/Constant%20Vortex%20Panel%20Method%20Handwritten%20Notes.pdf) — Scanned images of handwritten notebook derivations for those interested. Any major issues have been addressed in the typed-up PDF.
 
