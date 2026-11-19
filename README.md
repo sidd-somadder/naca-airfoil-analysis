@@ -30,7 +30,7 @@ XFOIL inviscid was used as a verification tool to ensure the accuracy of the fro
 
 - $C_L$ agrees with XFOIL inviscid lift to within 0.04 across $\alpha \in [−5°, 20°]$  
 - The two independent lift derivations (Kutta-Joukowski and pressure integration) agree to within 0.01 across $\alpha$ sweep despite panel-level oscillation in the pressure distribution, since the oscillatory behaviour cancels under integration.
-- $cond(K)$ grows as approximately $O(N^2)$; 6.96e+03 at 199 panels indicating growing sensitivity to perturbation under refinement.
+- $cond(K)$ grows as approximately $O(N^2)$; 6.96e+03 at 199 panels indicating growing sensitivity to perturbation under refinement for NACA 2412.
 - Symmetric-airfoil degenerate cases return zero net circulation and zero pressure difference across upper and lower surfaces
 
 ---
