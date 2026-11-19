@@ -120,6 +120,13 @@ if __name__ == "__main__":
         'XFOIL, Inviscid':      cl_xf,
         }
 
+        diff_kj = np.max(np.abs(cL_KJ - cl_xf))
+        diff_p = np.max(np.abs(cL_P - cl_xf))
+
+        max_diff = np.max([diff_kj, diff_p])
+
+        print(f"Max delta cL for {panel_count} panels: {max_diff}")
+
         # Plot lift, moment, and XFOIL residual values.
         plot_coeffs(angle_param, a_xfVisc=a_xfVisc, cL_TAT=cl_tat, cL_KJ=cL_KJ, cL_P=cL_P, cL_xf=cl_xf, cL_xfVisc=cl_xfVisc, title=fr'$C_L$ vs. $\alpha$ ({title_name})')
         plot_coeffs(angle_param, a_xfVisc=a_xfVisc, cmLE_TAT=cmLE_tat, cmLE_VPM=cmLE_VPM, cmLE_xf=cmLE_xf, title=rf'$C_{{M,LE}}$ vs. $\alpha$ ({title_name})', moment=True)
